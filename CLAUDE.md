@@ -8,7 +8,8 @@ None yet: Phase 0 (architecture) comes before any code.
 
 ## Layout
 - System spec, architecture and cross-service ADRs live in the `jobradar` repo
-  (`docs/SPEC.md`, `docs/ARCHITECTURE.md`); matcher-internal ADRs go in `docs/adr/` here.
+  (`docs/SPEC.md`, `docs/ARCHITECTURE.md`); matcher-internal ADRs are in `docs/adr/` here
+  (`NNNN-title.adr`, index in its README).
 
 ## Conventions
 - No code before the architecture in `jobradar` is approved (SPEC §14).

@@ -1,0 +1,100 @@
+# 0002. Matching: deterministic rules and taxonomy, plus one small embedding dimension
+
+- Status: Proposed (not approved)
+- Date: 2026-11-13
+
+Matching combines a curated skill taxonomy, deterministic extraction, three-way hard
+constraints, and one sentence-embedding similarity for responsibilities. The score is shown
+in coarse bands, with confidence and completeness reported separately. Learned weights come
+later through retraining (ADR 0004), without changing the architecture.
+
+## Technical details
+
+**Problem.** SPEC §6 asks for results that are explainable, reproducible, honest about
+missing data, testable, traceable and replaceable. There are no labeled data on day one.
+No LLM dependency (SPEC §2.2, §13). The comparison of approaches is in `jobradar`
+`docs/ARCHITECTURE.md` §5:
+
+| Approach | Verdict |
+|---|---|
+| Rules + taxonomy | the core |
+| TF-IDF/BM25 | weaker than the taxonomy |
+| Supervised ML | later, once there are labels |
+| Small bi-encoder embeddings | one dimension |
+| Cross-encoder or fine-tuning | no data, too heavy |
+| LLM | excluded |
+
+**Taxonomy** (`data/skills.yaml`, part of each model bundle, ADR 0004):
+```yaml
+- id: airflow
+  name: Apache Airflow
+  aliases: [airflow, apache airflow]
+  category: orchestration
+  related: [dagster, prefect, luigi]
+```
+- A few hundred data and backend skills to start.
+- A test checks that aliases are unique across skills and that every `related` id exists.
+
+**Extraction** (`extract/`, pure functions):
+- Text is normalized: HTML is stripped, Unicode is NFKC-normalized, and text is lowercased
+  for matching.
+- Skills are found by an alias phrase match on token boundaries (spaCy `PhraseMatcher` over
+  a blank English tokenizer, with no statistical model).
+- Section headings tag each skill `required` or `preferred`. Headings like
+  "Requirements" and "What you'll need" mean required, and "Nice to have", "Bonus" and
+  "Preferred" mean preferred. With no recognizable sections, skills count as required.
+- Regexes extract the years of experience ("5+ years"), the seniority words in the title
+  (junior … principal), salary text when the structured fields are empty, and
+  timezone/region phrases ("UTC±3", "EMEA", "US only").
+- Capitalized tech-looking tokens that the taxonomy doesn't know are reported as
+  `unrecognized`, and they feed taxonomy updates.
+
+**Dimensions** (`score/`). Each returns `{score: 0..1 | null, weight, evidence[]}`, and
+`null` means unknown:
+
+| Dimension | How |
+|---|---|
+| skills | coverage of required skills (weight 1.0) and preferred ones (0.5). A `related` skill counts as `transferable` and earns `transfer_credit` (0.5) |
+| seniority | the title level and years against the profile, with a penalty for a gap either way |
+| responsibilities | the posting's responsibility sentences against your experience bullets: bi-encoder cosine, mean of the best match per job sentence, mapped through thresholds tuned on the eval set. The evidence is the top 3 pairs |
+| compensation | the salary range against your minimum, after currency conversion with rates fixed in the bundle (no live rates, for reproducibility) |
+| location/timezone | remote eligibility, countries, UTC offset overlap |
+| employment type | in your accepted list or not |
+
+**Gates.**
+- Preferences the profile marks as hard (for example remote only, allowed countries,
+  salary floor) give `pass`, `fail` or `unknown`.
+- `fail` puts the job in band `excluded`, and the evidence says why.
+- `unknown` never excludes a job (SPEC §6.3). It lowers confidence.
+
+**Aggregation.**
+- The score is the weighted mean over the dimensions with a non-null score, rounded to a
+  multiple of 5.
+- The band comes from the bundle's cut-offs: `strong` / `good` / `weak`, or `excluded`.
+- `completeness` = the weight of the known dimensions divided by the total weight.
+- `confidence` is `high`, `medium` or `low`, from completeness, the number of recognized
+  skills and whether any gate was unknown.
+- These are separate fields, never folded into the score (SPEC §6.4).
+
+**Determinism.**
+- The output is sorted wherever order isn't meaningful, and floats are rounded before
+  serialization.
+- ONNX Runtime runs on CPU with `intra_op_num_threads=1`, which keeps results bit-stable.
+- A golden test checks that fixed inputs give byte-identical output.
+
+**Embedding model.**
+- Candidates are `BAAI/bge-small-en-v1.5` and `sentence-transformers/all-MiniLM-L6-v2`,
+  served through `fastembed` (ONNX Runtime, CPU, no PyTorch).
+- The choice is made in Phase 3 on the eval set (ADR 0003), by NDCG@10 and latency.
+- The chosen model's id and revision are pinned in the image and recorded in every
+  bundle's manifest.
+
+## Technologies and alternatives
+- Involved: spaCy (tokenizer and PhraseMatcher only), fastembed / ONNX Runtime, PyYAML,
+  numpy.
+- Alternatives:
+  - Embeddings only: can't apply gates or name the missing skills.
+  - Supervised from day one: no labels yet.
+  - sentence-transformers: a larger image (PyTorch) for the same models.
+  - ESCO/O*NET as the taxonomy: too broad and thin on modern data tooling; used as a
+    reference only.

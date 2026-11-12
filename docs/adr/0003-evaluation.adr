@@ -1,0 +1,67 @@
+# 0003. Evaluation: a labeled set you grade, fixed metrics, a CI regression gate
+
+- Status: Proposed (not approved)
+- Date: 2026-11-13
+
+Match quality is measured on a versioned labeled set: postings you grade for fit, plus
+postings with hand-annotated skills. Fixed metrics are computed on it. CI fails a matcher
+change that makes them worse, and model activation uses the same comparison.
+
+## Technical details
+
+**Problem.**
+- SPEC §10 asks for a repeatable evaluation strategy and matching quality tests.
+- Retraining and rollback (ADR 0004, `jobradar` ADR 0007) need a way to judge a model
+  version before it is activated.
+- You agreed to grade about 150 postings (Q4).
+
+**Dataset** (`eval/`):
+- `jobs.jsonl`: about 150 real postings as `NormalizedJob`, taken from the backend once
+  ingestion runs. Only the public posting text is kept.
+- `grades.jsonl`: `{job_id, grade: 0..3}`, where 0 = no fit, 1 = weak, 2 = good,
+  3 = strong. You grade them through a small CLI (`matcher eval grade`) that shows one
+  posting at a time.
+- `skills.jsonl`: about 50 postings with their skills annotated by hand as required or
+  preferred.
+- `profile.yaml`: a fixture profile. Your real profile is not committed. You choose whether
+  the fixture is a redacted copy of it or a realistic stand-in.
+- The dataset carries a version (`eval/VERSION`), and metrics are only compared within one
+  dataset version.
+
+**Metrics** (`matcher eval --bundle m-0007 → metrics.json`):
+
+| Metric | What it guards |
+|---|---|
+| skill precision / recall (micro), and per category | extraction |
+| required-vs-preferred accuracy | section tagging |
+| NDCG@10, precision@10 (grade ≥ 2 counts as relevant) | ranking quality |
+| false hard-constraint `fail` on grade ≥ 2 jobs | **must be 0**: wrongly excluding a good job is the costliest error |
+| p50/p95 latency per job | the cost of the embedding dimension |
+| share of results with `confidence = low` | extraction coverage |
+
+**Gate.**
+- `eval/baseline.json` holds the metrics of the active bundle on the current dataset
+  version.
+- CI runs the evaluation on every PR. It fails on any false `fail`, or when a metric drops
+  below baseline minus its tolerance in `eval/tolerances.yaml` (for example NDCG@10 −0.02,
+  skill recall −0.02).
+- A PR that intentionally changes behaviour updates `baseline.json` in the same diff, so
+  the change is visible and reviewed.
+- The training command (ADR 0004) runs the same evaluation and writes `metrics.json` into
+  the bundle. The backend's activation gate compares those values.
+
+**Unit and golden tests**, separate from evaluation:
+- each extractor and dimension tested on small, hand-written cases
+- gates: every pass/fail/unknown path
+- golden files: fixed input gives a byte-identical output
+
+**Overfitting.** Retraining (ADR 0004) fits on your application labels, not on the eval
+set. The eval grades are never used as training data, so the set stays a fair check.
+
+## Technologies and alternatives
+- Involved: numpy, scikit-learn (`ndcg_score` and logistic regression, shared with
+  training), pytest.
+- Alternatives:
+  - Unit tests only: they can't detect a ranking regression.
+  - Online metrics only: too slow and too few for one user.
+  - LLM-graded relevance: not reproducible, and excluded by SPEC §13.

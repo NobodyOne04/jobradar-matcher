@@ -13,7 +13,7 @@ build/
 
 # local model bundles and training snapshots (personal labels)
 /models/
-*.jsonl
+/labels/
 
 .idea/
 .vscode/

@@ -1,0 +1,73 @@
+# 0001. Python service stack: FastAPI, Pydantic, uv, one small image
+
+- Status: Proposed (not approved)
+- Date: 2026-11-13
+
+The matcher is a FastAPI app with Pydantic models, managed with uv and checked with pytest,
+ruff and mypy. It ships as one Docker image with the embedding model baked in, and it
+fetches nothing at runtime.
+
+## Technical details
+
+**Problem.**
+- The matcher needs an HTTP API with a versioned, documented contract (SPEC §8), strict
+  input validation (SPEC §10) and automated tests.
+- It must also be deployable on its own (SPEC §2.2).
+- The cross-service contract is in `jobradar` ADR 0004.
+
+**Python version.** The newest CPython release that ONNX Runtime and the other dependencies
+publish wheels for when Phase 1 starts (checked then). It is pinned in `.python-version`
+and in `requires-python`. Python 3.11, installed locally, is too old to be the target; uv
+installs the pinned one.
+
+**Layout.**
+```
+src/matcher/
+  api/        FastAPI app, routes, problem+json errors, bearer-token dependency
+  schemas/    Pydantic models: NormalizedJob, ProfileRevision (per schema_version), MatchResult
+  extract/    skill and requirement extraction (ADR 0002)
+  score/      dimensions, gates, aggregation (ADR 0002)
+  taxonomy/   loading and validating skills.yaml
+  registry/   loading and checking model bundles (ADR 0004)
+  train/      the `matcher train` command (ADR 0004)
+  cli.py      entry point: serve | train | eval
+```
+
+**Libraries.**
+- FastAPI with Pydantic v2: request validation, the OpenAPI document, typed models.
+- uvicorn with a single worker. Concurrency is not needed: a batch is one CPU-bound
+  call, and a request gets a 503 when the matcher is busy, so the backend retries.
+- `structlog` for JSON logs (`jobradar` ADR 0009).
+- Embedding model and scoring libraries: ADR 0002.
+
+**Tooling.**
+- `uv` manages the env and the lockfile (`uv.lock` is committed, and CI installs with
+  `uv sync --locked`).
+- `pytest`, `ruff check`, `ruff format --check`, `mypy --strict` on `src/`.
+- `pip-audit` for dependency vulnerabilities.
+
+**Contract file.**
+- `openapi.yaml` is generated with `matcher openapi > openapi.yaml` and committed.
+- A test fails if the generated document differs from the committed one, so contract
+  changes are always visible in a diff.
+
+**Image.**
+- Multi-stage build: uv installs into a venv, and the final stage is `python:<pinned>-slim`
+  running as a non-root user.
+- The embedding model files are downloaded at build time at a pinned revision and checked
+  against a checksum.
+- `HF_HUB_OFFLINE=1` at runtime, so the matcher never reaches the network.
+- The image tag is the git tag (`jobradar-matcher:v0.3.0`).
+
+**Releases.**
+- Git tags `vMAJOR.MINOR.PATCH`, with `CHANGELOG.md` updated in a release PR.
+- A breaking change to `/v1` bumps the major version and adds `/v2` alongside.
+
+## Technologies and alternatives
+- Involved: FastAPI, Pydantic v2, uvicorn, uv, pytest, ruff, mypy, pip-audit, structlog.
+- Alternatives:
+  - Flask: no built-in validation or OpenAPI.
+  - Litestar: capable, but a smaller ecosystem.
+  - Poetry: slower, and uv also manages Python versions.
+  - BentoML or another model-serving framework: built for model artifacts behind generic
+    endpoints, while this service is mostly domain logic.
