@@ -1,0 +1,119 @@
+openapi: 3.1.0
+info:
+  title: jobradar-matcher
+  version: 0.1.0
+paths:
+  /healthz:
+    get:
+      tags:
+      - health
+      summary: Healthz
+      operationId: healthz_healthz_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+  /readyz:
+    get:
+      tags:
+      - health
+      summary: Readyz
+      operationId: readyz_readyz_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+        '503':
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /v1/version:
+    get:
+      tags:
+      - v1
+      summary: V1 Version
+      operationId: v1_version_v1_version_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VersionInfo'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+      security:
+      - HTTPBearer: []
+components:
+  schemas:
+    Problem:
+      properties:
+        type:
+          type: string
+          title: Type
+          default: about:blank
+        title:
+          type: string
+          title: Title
+        status:
+          type: integer
+          title: Status
+        detail:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Detail
+        errors:
+          anyOf:
+          - items:
+              additionalProperties: true
+              type: object
+            type: array
+          - type: 'null'
+          title: Errors
+      type: object
+      required:
+      - title
+      - status
+      title: Problem
+      description: RFC 9457 problem details.
+    Status:
+      properties:
+        status:
+          type: string
+          title: Status
+      type: object
+      required:
+      - status
+      title: Status
+    VersionInfo:
+      properties:
+        matcher_version:
+          type: string
+          title: Matcher Version
+        api_versions:
+          items:
+            type: string
+          type: array
+          title: Api Versions
+      type: object
+      required:
+      - matcher_version
+      - api_versions
+      title: VersionInfo
+  securitySchemes:
+    HTTPBearer:
+      type: http
+      scheme: bearer
