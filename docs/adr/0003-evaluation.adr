@@ -1,6 +1,6 @@
 # 0003. Evaluation: a labeled set you grade, fixed metrics, a CI regression gate
 
-- Status: Proposed (not approved)
+- Status: Accepted
 - Date: 2026-11-13
 
 Match quality is measured on a versioned labeled set: postings you grade for fit, plus
