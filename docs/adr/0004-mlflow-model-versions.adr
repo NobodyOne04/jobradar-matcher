@@ -1,6 +1,6 @@
 # 0004. Model versions in MLflow: `matcher train` registers, `matcher promote` moves `champion`
 
-- Status: Proposed (not approved)
+- Status: Accepted
 - Date: 2026-11-13
 
 Everything that decides a score, apart from code and the pretrained embedding model, is a
