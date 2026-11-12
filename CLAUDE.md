@@ -30,6 +30,9 @@ docker build -t jobradar-matcher:vX.Y.Z .
 - Error bodies never echo request input (it may be personal data): field paths only.
 - Tests use `httpx` with Starlette's `TestClient`; its deprecation warning about `httpx2`
   is known and accepted. Don't switch to `httpx2` without asking.
+- CI is disabled (`gh workflow disable CI`, 2026-11-13) until the coding phases are done.
+  Before every PR, run its checks locally: ruff check, ruff format --check, mypy, pytest,
+  pip-audit, docker build. Re-enable with `gh workflow enable CI`.
 - This repo owns the matcher API contract (`openapi.yaml`); the backend pins a release tag.
   Breaking changes go to a new `/vN` path.
 - Model versions in MLflow are immutable; every result names its model version (ADR 0004).
