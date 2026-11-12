@@ -6,7 +6,7 @@ System-level and backend decisions live in `jobradar/docs/adr/`.
 
 | # | Decision | Status |
 |---|---|---|
-| [0001](0001-python-service-stack.adr) | Python service stack: FastAPI, Pydantic, uv, one small image | Proposed |
-| [0002](0002-hybrid-matching.adr) | Matching: deterministic rules and taxonomy, plus one small embedding dimension | Proposed |
-| [0003](0003-evaluation.adr) | Evaluation: a labeled set you grade, fixed metrics, a CI regression gate | Proposed |
-| [0004](0004-model-bundles.adr) | Model bundles: immutable versioned directories, built by `matcher train` | Proposed |
+| [0001](0001-python-service-stack.adr) | Python service stack: FastAPI, Pydantic, uv, one small image | Accepted |
+| [0002](0002-hybrid-matching.adr) | Matching: deterministic rules and taxonomy, plus one small embedding dimension | Accepted |
+| [0003](0003-evaluation.adr) | Evaluation: a labeled set you grade, fixed metrics, a CI regression gate | Accepted |
+| [0004](0004-mlflow-model-versions.adr) | Model versions in MLflow: `matcher train` registers, `matcher promote` moves `champion` | Proposed |

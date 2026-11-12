@@ -1,0 +1,103 @@
+# 0004. Model versions in MLflow: `matcher train` registers, `matcher promote` moves `champion`
+
+- Status: Proposed (not approved)
+- Date: 2026-11-13
+
+Everything that decides a score, apart from code and the pretrained embedding model, is a
+versioned model in the MLflow registry. Retraining logs a run and registers a new version.
+Promotion and rollback move the `champion` alias. The matcher downloads versions from
+MLflow and caches them, so it keeps serving if MLflow is down.
+
+## Technical details
+
+**Problem.**
+- You want to retrain, and to roll back a buggy version to the previous one.
+- You chose MLflow, with the registry's `champion` alias deciding the live version
+  (`jobradar` ADR 0010, which covers the backend side).
+- SPEC §6.7–6.8 asks for traceable versions and replaceable models.
+
+Two things change at different speeds:
+
+| Axis | Covers | Rollback |
+|---|---|---|
+| matcher release (`v0.3.0`, image tag) | code, pretrained embedding model (baked in, ADR 0001) | start the previous image tag (`jobradar` ADR 0001) |
+| model version (`jobradar-matcher` v7 in MLflow) | taxonomy, weights, thresholds, band cut-offs, FX rates, trained coefficients | move `champion` back to v6 |
+
+**What a model version contains** (artifacts of the registered model):
+```
+bundle/manifest.json   format_version, compatible_matcher: ">=0.3,<1.0",
+                       embedding_model: {id, revision}, seed, parent_version,
+                       training_data: {sha256, rows, label_counts} | null, files: {name: sha256}
+bundle/taxonomy.yaml   the skill taxonomy (ADR 0002)
+bundle/weights.json    dimension weights, transfer_credit, (later) logistic-regression coefficients
+bundle/thresholds.json band cut-offs, similarity mapping, confidence rules, FX rates
+```
+- It is logged as an MLflow **pyfunc** model using "models from code"
+  (`python_model="src/matcher/mlflow_model.py"`), so no pickling is involved.
+  `mlflow.pyfunc.load_model("models:/jobradar-matcher@champion")` therefore works in a
+  notebook, and `mlflow.evaluate` can be used later.
+- The serving path does not use pyfunc. It reads the same `bundle/` files with the
+  matcher's own loader, so serving behaviour equals tested behaviour.
+- The training run also logs:
+  - params: parent version, seed, label counts, matcher release
+  - metrics: everything from ADR 0003, for the new version and its parent
+  - artifacts: the label snapshot (`training/labels.jsonl`) and the eval report
+- Each run is tagged with the git commit and the eval dataset version.
+
+**Commands** (run as `docker compose run --rm matcher-train …`, with
+`MLFLOW_TRACKING_URI=http://mlflow:5000`):
+- `matcher train --from-defaults`: registers version 1 from the hand-set defaults committed
+  under `defaults/`.
+- `matcher train --labels /in/labels.jsonl --parent 6`:
+  1. Download the parent version.
+  2. Fit logistic regression on the dimension scores against your labels, with a fixed
+     seed. Applied, interview or offer counts as 1; rejected by you or archived without
+     applying counts as 0.
+  3. Run the ADR 0003 evaluation on the new version and on its parent.
+  4. Log the run and register a new version. No alias is set.
+- `matcher train --parent 6 --taxonomy data/skills.yaml`: the same for taxonomy or
+  threshold edits, without labels.
+- `matcher promote 7 --reason "…" [--force]`:
+  - compares version 7's metrics with the current champion's, using the ADR 0003
+    tolerances and the zero-false-fail rule
+  - refuses without `--force` if version 7 regressed
+  - sets `champion` = 7 and tags the version with `promoted_reason`, `promoted_at` and
+    `gate` (`passed` or `forced`)
+- Rollback is `matcher promote 6 --reason "…"`, with `--force` if the gate objects. You
+  can also move the alias in the MLflow UI, which skips the gate (`jobradar` ADR 0010
+  logs `gate` absent).
+
+**Loading in the server** (`registry/`):
+- Each `/v1/match` request names `model_version` (`jobradar` ADR 0004).
+- If that version is not in memory, the matcher downloads its `bundle/` from MLflow into
+  the cache volume `/cache/models/<version>/`, then verifies it:
+  - every file checksum against the manifest
+  - the format version
+  - the release falls within `compatible_matcher`
+  - the embedding model id and revision match the image
+- Failures return 422 problem+json with the reason, and are never skipped silently.
+- Cached versions survive restarts (volume `matcher-cache`). With MLflow down, cached
+  versions are still served, and an uncached one gets 503 (the backend retries).
+- `GET /v1/models` lists the versions in cache and in memory.
+- Versions are immutable in MLflow, so a cached copy is never stale.
+- The matcher never reads the alias. It serves whichever version the backend asks for.
+- The only network access at runtime is to the MLflow server inside the compose network.
+  Nothing comes from the internet (`HF_HUB_OFFLINE=1`, ADR 0001).
+
+**Reproducibility.**
+- A model version together with the input and the matcher release determine the result.
+- Retraining from a version's logged label snapshot, seed and parent gives the same
+  `weights.json`, and a test checks this.
+
+**Personal data.** The label snapshot artifact holds your application decisions. It stays
+in the local `mlartifacts` volume, which is never published or committed.
+
+## Technologies and alternatives
+- Involved: `mlflow-skinny` (client only, a much smaller install than full `mlflow`)
+  pinned to the server's version, scikit-learn, SHA-256.
+- Alternatives:
+  - Immutable bundles on a plain volume plus the backend's own registry: rejected in
+    favour of MLflow (`jobradar` ADR 0007).
+  - Serving with `mlflow models serve`: it would replace this service's own contract and
+    validation.
+  - A pickled pyfunc: fragile across code changes. "Models from code" avoids it.

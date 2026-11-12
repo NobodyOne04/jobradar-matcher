@@ -1,6 +1,6 @@
 # 0003. Evaluation: a labeled set you grade, fixed metrics, a CI regression gate
 
-- Status: Proposed (not approved)
+- Status: Accepted
 - Date: 2026-11-13
 
 Match quality is measured on a versioned labeled set: postings you grade for fit, plus
@@ -11,7 +11,7 @@ change that makes them worse, and model activation uses the same comparison.
 
 **Problem.**
 - SPEC §10 asks for a repeatable evaluation strategy and matching quality tests.
-- Retraining and rollback (ADR 0004, `jobradar` ADR 0007) need a way to judge a model
+- Retraining and rollback (ADR 0004, `jobradar` ADR 0010) need a way to judge a model
   version before it is activated.
 - You agreed to grade about 150 postings (Q4).
 
@@ -28,7 +28,7 @@ change that makes them worse, and model activation uses the same comparison.
 - The dataset carries a version (`eval/VERSION`), and metrics are only compared within one
   dataset version.
 
-**Metrics** (`matcher eval --bundle m-0007 → metrics.json`):
+**Metrics** (`matcher eval --model-version 7`, logged as metrics of the MLflow run):
 
 | Metric | What it guards |
 |---|---|
@@ -40,15 +40,15 @@ change that makes them worse, and model activation uses the same comparison.
 | share of results with `confidence = low` | extraction coverage |
 
 **Gate.**
-- `eval/baseline.json` holds the metrics of the active bundle on the current dataset
+- `eval/baseline.json` holds the metrics of the current `champion` on the current dataset
   version.
 - CI runs the evaluation on every PR. It fails on any false `fail`, or when a metric drops
   below baseline minus its tolerance in `eval/tolerances.yaml` (for example NDCG@10 −0.02,
   skill recall −0.02).
 - A PR that intentionally changes behaviour updates `baseline.json` in the same diff, so
   the change is visible and reviewed.
-- The training command (ADR 0004) runs the same evaluation and writes `metrics.json` into
-  the bundle. The backend's activation gate compares those values.
+- The training command (ADR 0004) runs the same evaluation and logs the results to the
+  MLflow run. `matcher promote` compares those values before it moves `champion`.
 
 **Unit and golden tests**, separate from evaluation:
 - each extractor and dimension tested on small, hand-written cases
