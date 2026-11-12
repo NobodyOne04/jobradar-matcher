@@ -28,6 +28,8 @@ docker build -t jobradar-matcher:vX.Y.Z .
 - Python is pinned to the newest version ONNX Runtime ships wheels for (ADR 0001): 3.14
   today, although 3.15 exists. Pin exact versions in the Dockerfile.
 - Error bodies never echo request input (it may be personal data): field paths only.
+- Tests use `httpx` with Starlette's `TestClient`; its deprecation warning about `httpx2`
+  is known and accepted. Don't switch to `httpx2` without asking.
 - This repo owns the matcher API contract (`openapi.yaml`); the backend pins a release tag.
   Breaking changes go to a new `/vN` path.
 - Model versions in MLflow are immutable; every result names its model version (ADR 0004).
