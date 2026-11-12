@@ -1,6 +1,6 @@
 # 0001. Python service stack: FastAPI, Pydantic, uv, one small image
 
-- Status: Proposed (not approved)
+- Status: Accepted
 - Date: 2026-11-13
 
 The matcher is a FastAPI app with Pydantic models, managed with uv and checked with pytest,
