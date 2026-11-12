@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.3.3
       - run: uv sync --locked
       - run: uv run ruff check
       - run: uv run ruff format --check
@@ -32,7 +32,7 @@ jobs:
       - name: smoke test
         run: |
           export MATCHER_TOKEN="$(openssl rand -hex 16)"  # throwaway, per run
-          docker run -d --name m -e MATCHER_TOKEN -p 8000:8000 jobradar-matcher:ci
+          docker run -d --name matcher-smoke -e MATCHER_TOKEN -p 8000:8000 jobradar-matcher:ci
           for i in $(seq 1 20); do curl -fs localhost:8000/readyz && break; sleep 1; done
           curl -fs -H "Authorization: Bearer $MATCHER_TOKEN" localhost:8000/v1/version
-          docker logs m
+          docker logs matcher-smoke
