@@ -12,6 +12,7 @@ uv run pytest                             # CI
 uv run matcher openapi > openapi.yaml     # after any API change; a test enforces it
 MATCHER_TOKEN=<16+ chars> uv run matcher serve    # :8000; /healthz /readyz /v1/version
 uv run matcher extract job.json           # {"title","description_text"} -> skills, years, salary...
+uv run matcher score --profile tests/fixtures/profile_example.yaml --job job.json   # one match
 docker build -t jobradar-matcher:vX.Y.Z .
 ```
 
@@ -26,7 +27,12 @@ docker build -t jobradar-matcher:vX.Y.Z .
   for both job text and aliases
 - `src/matcher/extract/`: deterministic extraction (skills with required/preferred from
   sections, years, title level, salary text, regions, UTC offsets, unrecognized terms)
-- `tests/fixtures/`: recorded real postings
+- `src/matcher/schemas/`: `Profile` (schema v1, mirrors jobradar `docs/api/profile.schema.json`)
+  and `Job` (the backend's normalized job), both strict
+- `src/matcher/score/`: dimensions, hard-constraint gates, banded score, confidence,
+  explanations; `config.py` + `defaults/scoring.yaml` (weights, cut-offs, fixed FX rates);
+  `geo.py`: which countries a location phrase covers
+- `tests/fixtures/`: recorded real postings, and the fictional example profile
 - `openapi.yaml`: the contract, generated and committed; the backend pins a copy per tag
 - `tests/`: pytest, through `create_app` and `TestClient`
 
@@ -37,6 +43,11 @@ docker build -t jobradar-matcher:vX.Y.Z .
 - Extraction is pure and deterministic: no clock, no randomness, sorted output. A new alias
   must not be a common English word ("rest", "rails", "yarn" were removed for that); short
   ambiguous names go in `cased`. Grow the taxonomy from `unrecognized` on real postings.
+- Unknown is never a mismatch: a dimension without data is left out (lower completeness),
+  a hard constraint without data is `unknown`, never `fail`. Score, band, confidence and
+  completeness stay separate fields.
+- Weights and thresholds live in `defaults/scoring.yaml`, never in code: they will be part of
+  each model version (ADR 0004). Change them only together with the eval baseline (ADR 0003).
 - Error bodies never echo request input (it may be personal data): field paths only.
 - Tests use `httpx` with Starlette's `TestClient`; its deprecation warning about `httpx2`
   is known and accepted. Don't switch to `httpx2` without asking.

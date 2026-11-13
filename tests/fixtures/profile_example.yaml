@@ -1,0 +1,44 @@
+# Example candidate profile (schema_version 1, ADR 0006). A fictional person: copy this to
+# profiles/<your-name>.yaml (git-ignored), fill it from your CV, then
+#   jobradar profile import profiles/<your-name>.yaml
+# The file name becomes the profile name. Schema: docs/api/profile.schema.json.
+schema_version: 1
+headline: Senior data engineer building batch and streaming platforms
+seniority: senior            # junior | mid | senior | staff | principal | lead | manager | director
+years_of_experience: 8
+
+experience:
+  - title: Senior Data Engineer
+    company: Example Logistics GmbH
+    start: 2021-03             # YYYY-MM
+    responsibilities:
+      - Designed and ran the batch platform on Airflow, dbt and Snowflake
+      - Built streaming ingestion with Kafka and Flink for 40k events per second
+    achievements:
+      - Cut warehouse cost by 35% by rewriting the top 20 models incrementally
+    skills: [Python, SQL, Airflow, dbt, Snowflake, Kafka, Flink, Terraform]
+  - title: Data Engineer
+    company: Example Retail Ltd
+    start: 2017-06
+    end: 2021-02
+    responsibilities:
+      - Built ELT pipelines from 30 sources into BigQuery
+    skills: [Python, BigQuery, Spark, GCP]
+
+skills:                       # names are free text; the matcher maps them to its taxonomy
+  - { name: Python, level: expert, years: 8 }
+  - { name: SQL, level: expert, years: 8 }
+  - { name: Apache Airflow, level: advanced, years: 5 }
+  - { name: dbt, level: advanced, years: 4 }
+  - { name: Kafka, level: intermediate, years: 3 }
+  - { name: Go, level: basic }
+
+preferences:
+  employment_types: [full_time, contract]
+  remote_only: true
+  locations: [Germany, European Union]
+  timezones: { min_utc_offset: -1, max_utc_offset: 3 }
+  salary: { min: 90000, currency: EUR, period: year }
+  hard_constraints: [remote_only, salary]   # gates; the other preferences are soft
+
+extra: {}                     # anything the schema does not cover yet

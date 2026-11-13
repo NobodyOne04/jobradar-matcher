@@ -1,0 +1,32 @@
+# Hand-set scoring config (matcher ADR 0002). It becomes part of model version 1 (ADR 0004);
+# retraining replaces the weights. Change values here only together with the eval baseline.
+
+weights:               # relative; only dimensions with data count (see completeness)
+  skills: 0.40
+  seniority: 0.20
+  compensation: 0.15
+  location: 0.15
+  employment_type: 0.10
+
+skills:
+  preferred_weight: 0.5     # a preferred skill counts half as much as a required one
+  transfer_credit: 0.5      # a related skill the candidate has earns this much of a match
+
+seniority:                  # level ranks; equal ranks are a perfect fit
+  ranks: {junior: 0, mid: 1, senior: 2, lead: 3, staff: 3, manager: 3, principal: 4, director: 5}
+  level_gap_scores: {"-3": 0.0, "-2": 0.1, "-1": 0.5, "0": 1.0, "1": 0.8, "2": 0.5, "3": 0.3}
+  years_short_scores: [1.0, 0.7, 0.4, 0.1]   # candidate 0, 1, 2, 3+ years short of the minimum
+
+compensation:
+  near_miss: 0.9            # job max >= 90% of your minimum: half credit, still passes a gate
+  # Fixed EUR rates (approximate, 2026-11): no live rates, so results are reproducible.
+  eur_per_unit: {EUR: 1.0, USD: 0.92, GBP: 1.17, CHF: 1.05, CAD: 0.66, AUD: 0.6, PLN: 0.23, SEK: 0.087, NOK: 0.085, DKK: 0.134}
+  per_year: {year: 1, month: 12, day: 220, hour: 1760}
+
+bands:                      # score cut-offs; a failed hard constraint is band "excluded"
+  strong: 75
+  good: 55
+
+confidence:
+  high: {min_completeness: 0.8, min_recognized_skills: 3}
+  medium: {min_completeness: 0.5}

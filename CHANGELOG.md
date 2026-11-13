@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Added
+- Scoring a job against a profile: skills (matched, transferable, missing), seniority, compensation with fixed FX rates, location/remote/time zone, employment type; hard constraints as pass/fail/unknown; banded score with separate confidence and completeness; explanations; `matcher score`
 - Skill taxonomy (151 data/backend skills) and deterministic extraction from postings: skills as required or preferred, years of experience, title level, salary text, regions, UTC offsets, unrecognized terms; `matcher extract`
 - ADRs 0001–0004 (Proposed): Python stack, hybrid matching, evaluation, model versions in MLflow
 - Service skeleton: FastAPI app with `/healthz`, `/readyz`, `/v1/version`, bearer auth, problem+json errors, JSON logs with request IDs, committed `openapi.yaml`, Dockerfile, CI
