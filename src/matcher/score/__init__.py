@@ -233,11 +233,12 @@ def _location(job: Job, ex: Extraction, profile: Profile) -> tuple[_Dim, dict[st
 
     if prefs.locations:
         yours = frozenset().union(*(geo.covers(p) for p in prefs.locations))
-        allowed = (
-            frozenset(c for c in job.countries if c in geo.COUNTRIES)
-            | geo.mentioned(job.location_text)
-            | frozenset().union(*(geo.region_countries(r) for r in ex.regions))
+        # The posting's own location fields win; regions named in the text only count when
+        # those name nothing ("Germany (Remote)" plus "APAC customers" is Germany only).
+        listed = frozenset(c for c in job.countries if c in geo.COUNTRIES) | geo.mentioned(
+            job.location_text
         )
+        allowed = listed or frozenset().union(*(geo.region_countries(r) for r in ex.regions))
         if not yours or not allowed:
             subs["locations"] = _Dim(None, ["no known location to compare"])
         elif yours & allowed:

@@ -56,6 +56,9 @@ New jobs or grades change the dataset: bump `VERSION` and commit a new baseline.
 
 ## Dataset version 1
 
+The eval profile lists `locations: [Thailand]` (where the candidate can work from) since 0.3.2;
+it said `[Thailand, APAC, Worldwide]` before, which let onsite Tokyo jobs pass.
+
 250 jobs: 150 from the stratified sample, 100 from Thailand-filtered sources. Grades
 {0: 190, 1: 47, 2: 7, 3: 6}, written by Claude from the candidate's CV and stated preferences
 as a proxy for the candidate's own judgement; grades the candidate gives later go in a new

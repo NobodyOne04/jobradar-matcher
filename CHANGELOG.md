@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Fixed
+- Locations: "worldwide" in company boilerplate ("20,000 organizations worldwide") made every posting open worldwide; it now counts only in hiring phrases ("Remote - Worldwide", "work from anywhere"). The posting's location fields win over regions named in its text. Common cities, all US states, Cambodia, Myanmar, China, Pakistan, Bangladesh, Sri Lanka, Saudi Arabia, Costa Rica are known (0.3.2)
 - `matcher train` and `eval run` in the image ran without the embedding model (the default path existed only in a checkout), so model versions 1–3 carry metrics without the responsibilities dimension; the default is now `MATCHER_EMBEDDING_DIR`, and both refuse to run without the model (0.3.1)
 - `/metrics` required no token; it now needs the same bearer token as /v1
 - openapi.yaml documented error responses as application/json with FastAPI's validation shape; they are application/problem+json with the Problem schema, as sent (0.2.1)
