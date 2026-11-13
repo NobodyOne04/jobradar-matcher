@@ -4,6 +4,7 @@ one job against one profile; `matcher fetch-model DIR` downloads the pinned embe
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -17,6 +18,20 @@ def openapi_yaml() -> str:
     # The token plays no part in the schema; any valid value will do.
     app = create_app(Settings(token="x" * 16))
     return yaml.safe_dump(app.openapi(), sort_keys=False, allow_unicode=True)
+
+
+# The pinned embedding model: baked into the image at MATCHER_EMBEDDING_DIR, fetched into .models/
+# in a checkout (`matcher fetch-model`).
+MODEL_DIR = Path(os.environ.get("MATCHER_EMBEDDING_DIR") or ".models/bge-small-en-v1.5")
+
+
+def _need_model(path: Path) -> bool:
+    """Eval metrics and model versions measured without the embedding model are not comparable
+    with ones measured with it, so train and eval refuse to run without it."""
+    if path.is_dir():
+        return True
+    print(f"embedding model not found at {path}: run `matcher fetch-model {path}`", file=sys.stderr)
+    return False
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -35,7 +50,7 @@ def main(argv: list[str] | None = None) -> int:
     sc.add_argument(
         "--model",
         type=Path,
-        default=Path(".models/bge-small-en-v1.5"),
+        default=MODEL_DIR,
         help="embedding model dir; responsibilities are unknown if it is missing",
     )
     ev = sub.add_parser("eval", help="the evaluation set (ADR 0003)")
@@ -50,7 +65,7 @@ def main(argv: list[str] | None = None) -> int:
     ev.add_argument("--dir", type=Path, default=Path("eval"))
     ev.add_argument("--taxonomy", type=Path, default=Path("data/skills.yaml"))
     ev.add_argument("--config", type=Path, default=Path("defaults/scoring.yaml"))
-    ev.add_argument("--model", type=Path, default=Path(".models/bge-small-en-v1.5"))
+    ev.add_argument("--model", type=Path, default=MODEL_DIR)
     tr = sub.add_parser("train", help="register a new model version in MLflow (ADR 0004)")
     src = tr.add_mutually_exclusive_group(required=True)
     src.add_argument(
@@ -61,7 +76,7 @@ def main(argv: list[str] | None = None) -> int:
     tr.add_argument("--config", type=Path, help="a new scoring config (with --parent)")
     tr.add_argument("--eval-dir", type=Path, default=Path("eval"))
     tr.add_argument("--eval-profile", type=Path, default=Path("eval/profile.yaml"))
-    tr.add_argument("--model", type=Path, default=Path(".models/bge-small-en-v1.5"))
+    tr.add_argument("--model", type=Path, default=MODEL_DIR)
     pr = sub.add_parser("promote", help="move champion to a version; also how to roll back")
     pr.add_argument("version")
     pr.add_argument("--reason", required=True)
@@ -69,7 +84,7 @@ def main(argv: list[str] | None = None) -> int:
     pr.add_argument("--tolerances", type=Path, default=Path("eval/tolerances.yaml"))
     sub.add_parser("models", help="list model versions and which is champion")
     fm = sub.add_parser("fetch-model", help="download the pinned embedding model and verify it")
-    fm.add_argument("dir", type=Path, nargs="?", default=Path(".models/bge-small-en-v1.5"))
+    fm.add_argument("dir", type=Path, nargs="?", default=MODEL_DIR)
     args = parser.parse_args(argv)
 
     if args.command == "openapi":
@@ -151,8 +166,10 @@ def _eval(args: argparse.Namespace) -> int:
         from matcher.schemas import Profile
         from matcher.score.config import load as load_config
 
+        if not _need_model(args.model):
+            return 2
         profile = Profile.model_validate(yaml.safe_load(args.profile.read_text(encoding="utf-8")))
-        embedder = Embedder(args.model, manifest()) if args.model.is_dir() else None
+        embedder = Embedder(args.model, manifest())
         result = run(
             args.dir, profile, load_taxonomy(args.taxonomy), load_config(args.config), embedder
         )
@@ -201,7 +218,9 @@ def _lifecycle(args: argparse.Namespace) -> int:
             return 2
         from matcher.embed import Embedder, manifest
 
-        embedder = Embedder(args.model, manifest()) if args.model.is_dir() else None
+        if not _need_model(args.model):
+            return 2
+        embedder = Embedder(args.model, manifest())
         t = lifecycle.train(
             reg, args.parent, args.taxonomy, args.config, args.eval_dir, args.eval_profile, embedder
         )
