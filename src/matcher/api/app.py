@@ -211,9 +211,10 @@ def create_app(settings: Settings, store: ModelStore | None = None) -> FastAPI:
         errors = [{"loc": list(e["loc"]), "msg": e["msg"], "type": e["type"]} for e in exc.errors()]
         return problem(422, title="validation error", errors=errors)
 
-    @app.get("/metrics", include_in_schema=False)
+    @app.get("/metrics", include_in_schema=False, dependencies=[Depends(require_token)])
     async def metrics() -> Response:
-        # Not part of the /v1 contract; reachable only inside the compose network.
+        # Not part of the /v1 contract. Same bearer token as /v1: the compose network is not the
+        # only line of defence (Prometheus sends it with `authorization: credentials`).
         return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
     @app.get("/healthz", response_model=Status, tags=["health"])

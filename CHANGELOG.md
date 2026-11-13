@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Fixed
+- `/metrics` required no token; it now needs the same bearer token as /v1
 - openapi.yaml documented error responses as application/json with FastAPI's validation shape; they are application/problem+json with the Problem schema, as sent (0.2.1)
 
 ### Added
