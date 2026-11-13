@@ -11,6 +11,7 @@ uv run mypy src tests                     # CI, strict
 uv run pytest                             # CI
 uv run matcher openapi > openapi.yaml     # after any API change; a test enforces it
 MATCHER_TOKEN=<16+ chars> uv run matcher serve    # :8000; /healthz /readyz /v1/version
+uv run matcher extract job.json           # {"title","description_text"} -> skills, years, salary...
 docker build -t jobradar-matcher:vX.Y.Z .
 ```
 
@@ -20,6 +21,12 @@ docker build -t jobradar-matcher:vX.Y.Z .
   (`NNNN-title.adr`, index in its README).
 - `src/matcher/api/app.py`: `create_app(settings)`, routes, problem+json errors, bearer auth,
   request-ID middleware; `config.py`: env settings; `logs.py`: structlog JSON; `cli.py`
+- `data/skills.yaml`: the skill taxonomy (aliases, `cased` aliases, categories, `related`);
+  `src/matcher/taxonomy/`: loads and validates it; `src/matcher/tokens.py`: the one tokenizer
+  for both job text and aliases
+- `src/matcher/extract/`: deterministic extraction (skills with required/preferred from
+  sections, years, title level, salary text, regions, UTC offsets, unrecognized terms)
+- `tests/fixtures/`: recorded real postings
 - `openapi.yaml`: the contract, generated and committed; the backend pins a copy per tag
 - `tests/`: pytest, through `create_app` and `TestClient`
 
@@ -27,6 +34,9 @@ docker build -t jobradar-matcher:vX.Y.Z .
 - One ADR, one PR, lowest number first; commits start with `[ADR-NNNN]`.
 - Python is pinned to the newest version ONNX Runtime ships wheels for (ADR 0001): 3.14
   today, although 3.15 exists. Pin exact versions in the Dockerfile.
+- Extraction is pure and deterministic: no clock, no randomness, sorted output. A new alias
+  must not be a common English word ("rest", "rails", "yarn" were removed for that); short
+  ambiguous names go in `cased`. Grow the taxonomy from `unrecognized` on real postings.
 - Error bodies never echo request input (it may be personal data): field paths only.
 - Tests use `httpx` with Starlette's `TestClient`; its deprecation warning about `httpx2`
   is known and accepted. Don't switch to `httpx2` without asking.

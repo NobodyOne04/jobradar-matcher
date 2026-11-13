@@ -30,7 +30,8 @@ select = ["E", "F", "W", "I", "B", "UP", "S", "RUF"]
 ignore = ["S104"]  # binding 0.0.0.0 is intended inside the container
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["S101", "S105", "S106"]
+"tests/*" = ["S101", "S105", "S106", "RUF001"]  # real-world dashes and fullwidth text on purpose
+"src/matcher/extract/*" = ["RUF001"]  # patterns match the en dashes and minus signs postings use
 
 [tool.mypy]
 strict = true

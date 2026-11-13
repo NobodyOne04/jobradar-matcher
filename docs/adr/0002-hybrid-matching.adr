@@ -38,8 +38,10 @@ No LLM dependency (SPEC §2.2, §13). The comparison of approaches is in `jobrad
 **Extraction** (`extract/`, pure functions):
 - Text is normalized: HTML is stripped, Unicode is NFKC-normalized, and text is lowercased
   for matching.
-- Skills are found by an alias phrase match on token boundaries (spaCy `PhraseMatcher` over
-  a blank English tokenizer, with no statistical model).
+- Skills are found by an alias phrase match on token boundaries: plain Python, longest
+  alias first (1-4 tokens), never across punctuation. spaCy's PhraseMatcher was planned;
+  you chose plain Python on 2026-11-13, because a blank-tokenizer PhraseMatcher is the same
+  dictionary lookup and spaCy brings about 10 dependencies.
 - Section headings tag each skill `required` or `preferred`. Headings like
   "Requirements" and "What you'll need" mean required, and "Nice to have", "Bonus" and
   "Preferred" mean preferred. With no recognizable sections, skills count as required.
@@ -90,11 +92,12 @@ No LLM dependency (SPEC §2.2, §13). The comparison of approaches is in `jobrad
   bundle's manifest.
 
 ## Technologies and alternatives
-- Involved: spaCy (tokenizer and PhraseMatcher only), fastembed / ONNX Runtime, PyYAML,
+- Involved: fastembed / ONNX Runtime, PyYAML,
   numpy.
 - Alternatives:
   - Embeddings only: can't apply gates or name the missing skills.
   - Supervised from day one: no labels yet.
   - sentence-transformers: a larger image (PyTorch) for the same models.
+  - spaCy PhraseMatcher: the same lookup with ~10 extra dependencies (decided 2026-11-13).
   - ESCO/O*NET as the taxonomy: too broad and thin on modern data tooling; used as a
     reference only.
