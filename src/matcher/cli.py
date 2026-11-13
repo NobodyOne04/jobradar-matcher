@@ -51,6 +51,23 @@ def main(argv: list[str] | None = None) -> int:
     ev.add_argument("--taxonomy", type=Path, default=Path("data/skills.yaml"))
     ev.add_argument("--config", type=Path, default=Path("defaults/scoring.yaml"))
     ev.add_argument("--model", type=Path, default=Path(".models/bge-small-en-v1.5"))
+    tr = sub.add_parser("train", help="register a new model version in MLflow (ADR 0004)")
+    src = tr.add_mutually_exclusive_group(required=True)
+    src.add_argument(
+        "--from-defaults", action="store_true", help="data/skills.yaml + defaults/scoring.yaml"
+    )
+    src.add_argument("--parent", help="start from this version, replacing the files given")
+    tr.add_argument("--taxonomy", type=Path, help="a new taxonomy (with --parent)")
+    tr.add_argument("--config", type=Path, help="a new scoring config (with --parent)")
+    tr.add_argument("--eval-dir", type=Path, default=Path("eval"))
+    tr.add_argument("--eval-profile", type=Path, default=Path("eval/profile.yaml"))
+    tr.add_argument("--model", type=Path, default=Path(".models/bge-small-en-v1.5"))
+    pr = sub.add_parser("promote", help="move champion to a version; also how to roll back")
+    pr.add_argument("version")
+    pr.add_argument("--reason", required=True)
+    pr.add_argument("--force", action="store_true", help="promote despite a failed eval gate")
+    pr.add_argument("--tolerances", type=Path, default=Path("eval/tolerances.yaml"))
+    sub.add_parser("models", help="list model versions and which is champion")
     fm = sub.add_parser("fetch-model", help="download the pinned embedding model and verify it")
     fm.add_argument("dir", type=Path, nargs="?", default=Path(".models/bge-small-en-v1.5"))
     args = parser.parse_args(argv)
@@ -60,6 +77,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "eval":
         return _eval(args)
+    if args.command in ("train", "promote", "models"):
+        return _lifecycle(args)
     if args.command == "fetch-model":
         from matcher.embed import fetch, manifest
 
@@ -154,6 +173,65 @@ def _eval(args: argparse.Namespace) -> int:
         print("FAIL", p, file=sys.stderr)
     print("eval gate passed" if not problems else f"eval gate failed: {len(problems)} problem(s)")
     return 1 if problems else 0
+
+
+def _lifecycle(args: argparse.Namespace) -> int:
+    import os
+
+    from matcher import lifecycle
+    from matcher.registry import MLflowRegistry
+
+    uri = os.environ.get("MLFLOW_TRACKING_URI")
+    if not uri:
+        print("set MLFLOW_TRACKING_URI (e.g. http://localhost:5001)", file=sys.stderr)
+        return 2
+    reg = MLflowRegistry(uri)
+    if args.command == "models":
+        for v in reg.versions():
+            mark = "*" if v["champion"] else " "
+            print(
+                f"{mark} {v['version']:>4}  parent={v['parent'] or '-':<4} "
+                f"gate={v['gate'] or '-':<7} "
+                f"{v['created']}  {v['promoted_reason'] or ''}"
+            )
+        return 0
+    if args.command == "train":
+        if args.from_defaults and (args.taxonomy or args.config):
+            print("--taxonomy/--config go with --parent", file=sys.stderr)
+            return 2
+        from matcher.embed import Embedder, manifest
+
+        embedder = Embedder(args.model, manifest()) if args.model.is_dir() else None
+        t = lifecycle.train(
+            reg, args.parent, args.taxonomy, args.config, args.eval_dir, args.eval_profile, embedder
+        )
+        print(
+            f"registered version {t.version}"
+            + (
+                f" (eval set {t.dataset_version})"
+                if t.metrics
+                else " (no eval metrics: no eval set or eval profile)"
+            )
+        )
+        for name, value in sorted(t.metrics.items()):
+            print(f"  {name} = {value:g}")
+        return 0
+    tolerances = (
+        yaml.safe_load(args.tolerances.read_text(encoding="utf-8"))
+        if args.tolerances.is_file()
+        else {}
+    )
+    gate, problems = lifecycle.promote(reg, args.version, args.reason, args.force, tolerances)
+    for p in problems:
+        print("gate:", p, file=sys.stderr)
+    if gate == "refused":
+        print(
+            f"not promoted: the eval gate failed for version {args.version}; "
+            "use --force to override"
+        )
+        return 1
+    print(f"champion -> version {args.version} (gate: {gate})")
+    return 0
 
 
 if __name__ == "__main__":

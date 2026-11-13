@@ -3,6 +3,8 @@
 ## Unreleased
 
 ### Added
+- Model versions in MLflow: bundles (taxonomy + scoring config, checksummed, compatibility-checked), `matcher train` (from defaults or a parent, with eval metrics when the eval set exists), `matcher promote` (eval gate, `--force`, rollback), `matcher models`
+- `POST /v1/match` (explicit model version, batches of up to 50, item-level errors) and `GET /v1/models`; versions cached on disk so matching keeps working while MLflow is down; version 0.2.0
 - Evaluation tooling: `matcher eval grade` and `eval skills` (one posting at a time, resumable), `eval run` (skill precision/recall, required accuracy, NDCG@10, P@10, false fails, latency, low-confidence share), `eval check` (regression gate with tolerances); job export query and walkthrough in `eval/`
 - Responsibilities dimension: the posting's duties against your experience bullets with a pinned, checksum-verified embedding model (bge-small-en-v1.5, CPU, one thread, bit-stable), baked into the image; `matcher fetch-model`
 - Scoring a job against a profile: skills (matched, transferable, missing), seniority, compensation with fixed FX rates, location/remote/time zone, employment type; hard constraints as pass/fail/unknown; banded score with separate confidence and completeness; explanations; `matcher score`

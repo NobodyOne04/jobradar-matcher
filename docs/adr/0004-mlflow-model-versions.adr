@@ -25,19 +25,19 @@ Two things change at different speeds:
 
 **What a model version contains** (artifacts of the registered model):
 ```
-bundle/manifest.json   format_version, compatible_matcher: ">=0.3,<1.0",
-                       embedding_model: {id, revision}, seed, parent_version,
-                       training_data: {sha256, rows, label_counts} | null, files: {name: sha256}
+bundle/manifest.json   format_version, parent, matcher_version, compatible_matcher_min (same
+                       major, this version or newer), embedding_model: {model, revision},
+                       seed, training_data | null, files: [{name, sha256}]
 bundle/taxonomy.yaml   the skill taxonomy (ADR 0002)
-bundle/weights.json    dimension weights, transfer_credit, (later) logistic-regression coefficients
-bundle/thresholds.json band cut-offs, similarity mapping, confidence rules, FX rates
+bundle/scoring.yaml    weights, transfer credit, thresholds, band cut-offs, FX rates;
+                       (later) logistic-regression coefficients
 ```
-- It is logged as an MLflow **pyfunc** model using "models from code"
-  (`python_model="src/matcher/mlflow_model.py"`), so no pickling is involved.
-  `mlflow.pyfunc.load_model("models:/jobradar-matcher@champion")` therefore works in a
-  notebook, and `mlflow.evaluate` can be used later.
-- The serving path does not use pyfunc. It reads the same `bundle/` files with the
-  matcher's own loader, so serving behaviour equals tested behaviour.
+- A version's source is its training run's `bundle/` artifacts, registered with
+  `create_model_version`; there is no pyfunc wrapper (decided 2026-11-13: pyfunc needs
+  pandas only for notebook loading). Versions, aliases, metrics and run lineage work the
+  same; in a notebook, download the bundle and use `matcher.bundle.load`.
+- The serving path reads the `bundle/` files with the matcher's own loader, so serving
+  behaviour equals tested behaviour.
 - The training run also logs:
   - params: parent version, seed, label counts, matcher release
   - metrics: everything from ADR 0003, for the new version and its parent
@@ -87,7 +87,7 @@ bundle/thresholds.json band cut-offs, similarity mapping, confidence rules, FX r
 **Reproducibility.**
 - A model version together with the input and the matcher release determine the result.
 - Retraining from a version's logged label snapshot, seed and parent gives the same
-  `weights.json`, and a test checks this.
+  `scoring.yaml`, and a test checks this.
 
 **Personal data.** The label snapshot artifact holds your application decisions. It stays
 in the local `mlartifacts` volume, which is never published or committed.
@@ -100,4 +100,5 @@ in the local `mlartifacts` volume, which is never published or committed.
     favour of MLflow (`jobradar` ADR 0007).
   - Serving with `mlflow models serve`: it would replace this service's own contract and
     validation.
-  - A pickled pyfunc: fragile across code changes. "Models from code" avoids it.
+  - An MLflow pyfunc model ("models from code"): loadable in notebooks with
+    `mlflow.pyfunc.load_model`, but it needs pandas in the matcher only for that (2026-11-13).

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: jobradar-matcher
-  version: 0.1.0
+  version: 0.2.0
 paths:
   /healthz:
     get:
@@ -56,8 +56,356 @@ paths:
                 $ref: '#/components/schemas/Problem'
       security:
       - HTTPBearer: []
+  /v1/models:
+    get:
+      tags:
+      - v1
+      summary: V1 Models
+      operationId: v1_models_v1_models_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelListing'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+      security:
+      - HTTPBearer: []
+  /v1/match:
+    post:
+      tags:
+      - v1
+      summary: V1 Match
+      operationId: v1_match_v1_match_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MatchRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MatchResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '503':
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+      security:
+      - HTTPBearer: []
 components:
   schemas:
+    Dimension:
+      properties:
+        name:
+          type: string
+          title: Name
+        score:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Score
+        weight:
+          type: number
+          title: Weight
+        evidence:
+          items:
+            type: string
+          type: array
+          title: Evidence
+      type: object
+      required:
+      - name
+      - score
+      - weight
+      - evidence
+      title: Dimension
+    Experience:
+      properties:
+        title:
+          type: string
+          maxLength: 200
+          minLength: 1
+          title: Title
+        company:
+          type: string
+          maxLength: 200
+          minLength: 1
+          title: Company
+        start:
+          type: string
+          pattern: ^[0-9]{4}-(0[1-9]|1[0-2])$
+          title: Start
+        end:
+          anyOf:
+          - type: string
+            pattern: ^[0-9]{4}-(0[1-9]|1[0-2])$
+          - type: 'null'
+          title: End
+        responsibilities:
+          items:
+            type: string
+          type: array
+          maxItems: 50
+          title: Responsibilities
+          default: []
+        achievements:
+          items:
+            type: string
+          type: array
+          maxItems: 50
+          title: Achievements
+          default: []
+        skills:
+          items:
+            type: string
+          type: array
+          maxItems: 200
+          title: Skills
+          default: []
+      additionalProperties: false
+      type: object
+      required:
+      - title
+      - company
+      - start
+      title: Experience
+    Gate:
+      properties:
+        constraint:
+          type: string
+          title: Constraint
+        result:
+          type: string
+          enum:
+          - pass
+          - fail
+          - unknown
+          title: Result
+        reason:
+          type: string
+          title: Reason
+      type: object
+      required:
+      - constraint
+      - result
+      - reason
+      title: Gate
+    JobError:
+      properties:
+        job_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Job Id
+        error:
+          type: string
+          title: Error
+        errors:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Errors
+      type: object
+      required:
+      - job_id
+      - error
+      - errors
+      title: JobError
+      description: One job that could not be scored; the others in the batch still
+        are.
+    MatchItem:
+      properties:
+        score:
+          type: integer
+          title: Score
+        band:
+          type: string
+          enum:
+          - strong
+          - good
+          - weak
+          - excluded
+          title: Band
+        confidence:
+          type: string
+          enum:
+          - high
+          - medium
+          - low
+          title: Confidence
+        completeness:
+          type: number
+          title: Completeness
+        hard_constraints:
+          type: string
+          enum:
+          - pass
+          - fail
+          - unknown
+          title: Hard Constraints
+        gates:
+          items:
+            $ref: '#/components/schemas/Gate'
+          type: array
+          title: Gates
+        dimensions:
+          items:
+            $ref: '#/components/schemas/Dimension'
+          type: array
+          title: Dimensions
+        skills:
+          $ref: '#/components/schemas/Skills'
+        explanations:
+          items:
+            type: string
+          type: array
+          title: Explanations
+        job_id:
+          type: string
+          title: Job Id
+      type: object
+      required:
+      - score
+      - band
+      - confidence
+      - completeness
+      - hard_constraints
+      - gates
+      - dimensions
+      - skills
+      - explanations
+      - job_id
+      title: MatchItem
+    MatchRequest:
+      properties:
+        model_version:
+          type: string
+          pattern: ^[0-9]{1,9}$
+          title: Model Version
+          description: the MLflow model version to use
+        profile:
+          $ref: '#/components/schemas/Profile'
+        jobs:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          maxItems: 50
+          minItems: 1
+          title: Jobs
+          description: MatchJob objects; each is validated on its own, see JobError
+      type: object
+      required:
+      - model_version
+      - profile
+      - jobs
+      title: MatchRequest
+    MatchResponse:
+      properties:
+        model_version:
+          type: string
+          title: Model Version
+        matcher_version:
+          type: string
+          title: Matcher Version
+        results:
+          items:
+            anyOf:
+            - $ref: '#/components/schemas/MatchItem'
+            - $ref: '#/components/schemas/JobError'
+          type: array
+          title: Results
+      type: object
+      required:
+      - model_version
+      - matcher_version
+      - results
+      title: MatchResponse
+    ModelListing:
+      properties:
+        models:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Models
+      type: object
+      required:
+      - models
+      title: ModelListing
+    Preferences:
+      properties:
+        employment_types:
+          items:
+            type: string
+            enum:
+            - full_time
+            - part_time
+            - contract
+            - internship
+          type: array
+          title: Employment Types
+          default: []
+        remote_only:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Remote Only
+        locations:
+          items:
+            type: string
+          type: array
+          maxItems: 200
+          title: Locations
+          default: []
+        timezones:
+          anyOf:
+          - $ref: '#/components/schemas/Timezones'
+          - type: 'null'
+        salary:
+          anyOf:
+          - $ref: '#/components/schemas/Salary'
+          - type: 'null'
+        hard_constraints:
+          items:
+            type: string
+            enum:
+            - employment_types
+            - remote_only
+            - locations
+            - timezones
+            - salary
+          type: array
+          title: Hard Constraints
+          default: []
+      additionalProperties: false
+      type: object
+      title: Preferences
     Problem:
       properties:
         type:
@@ -89,6 +437,172 @@ components:
       - status
       title: Problem
       description: RFC 9457 problem details.
+    Profile:
+      properties:
+        schema_version:
+          type: integer
+          const: 1
+          title: Schema Version
+        headline:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Headline
+        seniority:
+          type: string
+          enum:
+          - junior
+          - mid
+          - senior
+          - staff
+          - principal
+          - lead
+          - manager
+          - director
+          title: Seniority
+        years_of_experience:
+          type: number
+          maximum: 60.0
+          minimum: 0.0
+          title: Years Of Experience
+        experience:
+          items:
+            $ref: '#/components/schemas/Experience'
+          type: array
+          maxItems: 50
+          title: Experience
+        skills:
+          items:
+            $ref: '#/components/schemas/ProfileSkill'
+          type: array
+          maxItems: 300
+          title: Skills
+        preferences:
+          $ref: '#/components/schemas/Preferences'
+        extra:
+          additionalProperties: true
+          type: object
+          title: Extra
+          default: {}
+      additionalProperties: false
+      type: object
+      required:
+      - schema_version
+      - seniority
+      - years_of_experience
+      - experience
+      - skills
+      - preferences
+      title: Profile
+      description: Candidate profile, schema_version 1.
+    ProfileSkill:
+      properties:
+        name:
+          type: string
+          maxLength: 200
+          minLength: 1
+          title: Name
+        level:
+          anyOf:
+          - type: string
+            enum:
+            - basic
+            - intermediate
+            - advanced
+            - expert
+          - type: 'null'
+          title: Level
+        years:
+          anyOf:
+          - type: number
+            maximum: 60.0
+            minimum: 0.0
+          - type: 'null'
+          title: Years
+      additionalProperties: false
+      type: object
+      required:
+      - name
+      title: ProfileSkill
+    Salary:
+      properties:
+        min:
+          type: number
+          exclusiveMinimum: 0.0
+          title: Min
+        currency:
+          type: string
+          pattern: ^[A-Z]{3}$
+          title: Currency
+        period:
+          type: string
+          enum:
+          - year
+          - month
+          - day
+          - hour
+          title: Period
+      additionalProperties: false
+      type: object
+      required:
+      - min
+      - currency
+      - period
+      title: Salary
+    SkillRef:
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        requirement:
+          type: string
+          enum:
+          - required
+          - preferred
+          title: Requirement
+        via:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Via
+      type: object
+      required:
+      - id
+      - name
+      - requirement
+      title: SkillRef
+    Skills:
+      properties:
+        matched:
+          items:
+            $ref: '#/components/schemas/SkillRef'
+          type: array
+          title: Matched
+        transferable:
+          items:
+            $ref: '#/components/schemas/SkillRef'
+          type: array
+          title: Transferable
+        missing:
+          items:
+            $ref: '#/components/schemas/SkillRef'
+          type: array
+          title: Missing
+        unrecognized:
+          items:
+            type: string
+          type: array
+          title: Unrecognized
+      type: object
+      required:
+      - matched
+      - transferable
+      - missing
+      - unrecognized
+      title: Skills
     Status:
       properties:
         status:
@@ -98,6 +612,24 @@ components:
       required:
       - status
       title: Status
+    Timezones:
+      properties:
+        min_utc_offset:
+          type: number
+          maximum: 14.0
+          minimum: -12.0
+          title: Min Utc Offset
+        max_utc_offset:
+          type: number
+          maximum: 14.0
+          minimum: -12.0
+          title: Max Utc Offset
+      additionalProperties: false
+      type: object
+      required:
+      - min_utc_offset
+      - max_utc_offset
+      title: Timezones
     VersionInfo:
       properties:
         matcher_version:

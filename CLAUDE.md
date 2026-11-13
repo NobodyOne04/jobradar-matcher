@@ -9,6 +9,9 @@ uv sync                                   # Python 3.14 (.python-version), locke
 uv run matcher fetch-model                # once: pinned embedding model into .models/ (64 MB)
 uv run matcher eval grade | skills        # build the eval set, one posting at a time
 uv run matcher eval run --profile eval/profile.yaml --out m.json && uv run matcher eval check m.json
+MLFLOW_TRACKING_URI=http://localhost:5001 uv run matcher train --from-defaults | --parent N [--config f]
+MLFLOW_TRACKING_URI=... uv run matcher promote N --reason "..." [--force]   # also how to roll back
+MLFLOW_TRACKING_URI=... uv run matcher models                               # * marks champion
 uv run ruff check && uv run ruff format --check   # CI
 uv run mypy src tests                     # CI, strict
 uv run pytest                             # CI
@@ -41,6 +44,12 @@ docker build -t jobradar-matcher:vX.Y.Z .
 - `eval/`: the evaluation set and gate (see `eval/README.md`); `src/matcher/evaluate/`: metrics
   (skill P/R, required accuracy, NDCG@10, P@10, false fails, latency, low confidence), the
   gate, and the interactive grading sessions
+- `src/matcher/bundle.py`: a model version's files (manifest, taxonomy, scoring config) with
+  checksums and compatibility checks; `registry.py`: MLflow (register, champion alias,
+  download); `models.py`: the server's cache of versions (`MATCHER_CACHE_DIR`, a volume);
+  `lifecycle.py`: train and promote
+- `src/matcher/api/app.py`: also `POST /v1/match` (names its model version; bad jobs are
+  item-level errors) and `GET /v1/models`
 - `tests/fixtures/`: recorded real postings, and the fictional example profile
 - `openapi.yaml`: the contract, generated and committed; the backend pins a copy per tag
 - `tests/`: pytest, through `create_app` and `TestClient`
@@ -57,6 +66,10 @@ docker build -t jobradar-matcher:vX.Y.Z .
   completeness stay separate fields.
 - Nothing is fetched at runtime (`HF_HUB_OFFLINE=1` in the image) and ONNX Runtime telemetry
   is disabled in `Embedder`. Changing the model means a new manifest (repo, revision, hashes).
+- The server never reads the `champion` alias: the backend names a version in every request
+  (jobradar ADR 0004, 0010). Model versions in MLflow are immutable; a change is a new version.
+- A change to the /v1 contract regenerates `openapi.yaml` and bumps the version in
+  pyproject.toml; the backend then re-pins (`scripts/pin-matcher.sh`).
 - Weights and thresholds live in `defaults/scoring.yaml`, never in code: they will be part of
   each model version (ADR 0004). Change them only together with the eval baseline (ADR 0003).
 - Before a PR that changes matching: `matcher eval run` + `matcher eval check` (once the set
