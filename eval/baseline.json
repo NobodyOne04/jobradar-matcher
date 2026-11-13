@@ -3,10 +3,10 @@
   "metrics": {
     "false_fails": 0.0,
     "graded_jobs": 250.0,
-    "latency_p50_ms": 286.1,
-    "latency_p95_ms": 1723.65,
+    "latency_p50_ms": 287.19,
+    "latency_p95_ms": 1717.67,
     "low_confidence_share": 0.0,
-    "ndcg_at_10": 0.6278,
+    "ndcg_at_10": 0.6725,
     "precision_at_10": 0.6,
     "required_accuracy": 0.9546,
     "skill_labelled_jobs": 50.0,

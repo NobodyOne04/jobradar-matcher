@@ -275,7 +275,11 @@ _REGIONS: list[tuple[str, re.Pattern[str]]] = [
     (
         "Worldwide",
         re.compile(
-            r"\b(worldwide|anywhere in the world|work from anywhere|globally remote)\b", re.I
+            # Hiring phrases only: "20,000 customers worldwide" says nothing about who can apply.
+            r"\b(anywhere in the world|work from anywhere|globally remote|"
+            r"remote[\s,:(–-]{1,4}(worldwide|global(ly)?|anywhere)|"
+            r"(worldwide|global) remote)\b",
+            re.I,
         ),
     ),
     ("Europe", re.compile(r"(?i:\beurope(an)?\b)|\bEU\b|\bEEA\b")),
