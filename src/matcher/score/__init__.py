@@ -106,12 +106,17 @@ def _skills(
     skills = Skills(
         matched=matched, transferable=transferable, missing=missing, unrecognized=ex.unrecognized
     )
+    # ADR 0005: the taxonomy is the candidate's field, so a posting naming none of its skills
+    # is a mismatch (0), not missing data; a few known skills are weak evidence, so the score
+    # is shrunk as if the posting named min_evidence skills.
     if total == 0:
-        return _Dim(None, ["no known skills found in the posting"]), skills
+        return _Dim(0.0, ["no known skills found in the posting"]), skills
     req = [s for s in ex.skills if s.requirement == "required"]
     req_matched = sum(1 for s in matched if s.requirement == "required")
     evidence = [f"{req_matched} of {len(req)} required skills matched"] if req else []
-    return _Dim(got / total, evidence), skills
+    if total < cfg.skills.min_evidence:
+        evidence.append(f"only {len(ex.skills)} known skills in the posting")
+    return _Dim(got / max(total, cfg.skills.min_evidence), evidence), skills
 
 
 def _responsibilities(
@@ -380,7 +385,7 @@ def _explain(gates: list[Gate], skills: Skills, dims: dict[str, _Dim]) -> list[s
         if g.result == "unknown"
     ]
     if dims["skills"].evidence:
-        out.append(dims["skills"].evidence[0].capitalize())
+        out.append("; ".join(dims["skills"].evidence).capitalize())
     missing_req = [s.name for s in skills.missing if s.requirement == "required"]
     if missing_req:
         out.append("Missing required: " + ", ".join(missing_req))

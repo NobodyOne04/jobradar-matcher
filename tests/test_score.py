@@ -184,10 +184,19 @@ def test_score_is_a_banded_multiple_of_five(tax: Taxonomy, cfg: ScoringConfig) -
         assert r.band == ("strong" if r.score >= 75 else "good" if r.score >= 55 else "weak")
 
 
-def test_nothing_known(tax: Taxonomy, cfg: ScoringConfig) -> None:
-    r = run(tax, cfg, profile(), title="Engineer")
-    assert r.completeness == 0 and r.confidence == "low"
-    assert r.explanations == ["Not enough information in the posting to score it"]
+def test_no_known_skills_is_a_mismatch(tax: Taxonomy, cfg: ScoringConfig) -> None:
+    # ADR 0005: a posting naming no taxonomy skill scores 0 on skills, not unknown.
+    r = run(tax, cfg, profile(), title="Account Executive", description_text="Close deals.")
+    assert dim(r, "skills") == 0 and r.score == 0 and r.band == "weak"
+    assert r.confidence == "low" and "No known skills found in the posting" in r.explanations
+
+
+def test_few_known_skills_are_weak_evidence(tax: Taxonomy, cfg: ScoringConfig) -> None:
+    one = run(tax, cfg, profile(), title="Sales", description_text="Requirements: SQL.")
+    assert dim(one, "skills") == round(1 / cfg.skills.min_evidence, 2)
+    assert any("only 1 known skills" in e for e in one.explanations)
+    many = run(tax, cfg, profile(), description_text="Requirements: Python, SQL, Kafka.")
+    assert dim(many, "skills") == 1.0
 
 
 def test_real_posting_end_to_end(tax: Taxonomy, cfg: ScoringConfig) -> None:

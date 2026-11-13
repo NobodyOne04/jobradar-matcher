@@ -10,3 +10,4 @@ System-level and backend decisions live in `jobradar/docs/adr/`.
 | [0002](0002-hybrid-matching.adr) | Matching: deterministic rules and taxonomy, plus one small embedding dimension | Accepted |
 | [0003](0003-evaluation.adr) | Evaluation: a labeled set you grade, fixed metrics, a CI regression gate | Accepted |
 | [0004](0004-mlflow-model-versions.adr) | Model versions in MLflow: `matcher train` registers, `matcher promote` moves `champion` | Accepted |
+| [0005](0005-skill-evidence.adr) | Skills: few known skills are weak evidence, none is a mismatch | Accepted |
