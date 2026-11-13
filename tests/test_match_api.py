@@ -99,7 +99,8 @@ def test_metrics(client: tuple[TestClient, FakeSource]) -> None:
     c, _ = client
     c.post("/v1/match", json=body(), headers=AUTH)
     c.get("/no/such/path/12345")
-    text = c.get("/metrics").text
+    assert c.get("/metrics").status_code == 401  # same token as /v1
+    text = c.get("/metrics", headers=AUTH).text
     assert 'matcher_requests_total{code="200",route="/v1/match"}' in text
     assert 'matcher_requests_total{code="404",route="unmatched"}' in text
     assert 'matcher_match_duration_seconds_count{model_version="1"}' in text
