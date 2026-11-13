@@ -2,15 +2,21 @@
 # retraining replaces the weights. Change values here only together with the eval baseline.
 
 weights:               # relative; only dimensions with data count (see completeness)
-  skills: 0.40
-  seniority: 0.20
+  skills: 0.35
+  responsibilities: 0.15
+  seniority: 0.15
   compensation: 0.15
   location: 0.15
-  employment_type: 0.10
+  employment_type: 0.05
 
 skills:
   preferred_weight: 0.5     # a preferred skill counts half as much as a required one
   transfer_credit: 0.5      # a related skill the candidate has earns this much of a match
+
+responsibilities:           # bge-small cosine, mean of each duty's best match with your bullets
+  low: 0.5                  # at or below: 0 (unrelated sentences score about 0.4-0.5)
+  high: 0.8                 # at or above: 1 (close paraphrases score about 0.8)
+  top_pairs: 3              # evidence: the closest duty/bullet pairs
 
 seniority:                  # level ranks; equal ranks are a perfect fit
   ranks: {junior: 0, mid: 1, senior: 2, lead: 3, staff: 3, manager: 3, principal: 4, director: 5}

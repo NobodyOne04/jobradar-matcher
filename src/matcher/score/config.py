@@ -5,7 +5,14 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-DIMENSIONS = ("skills", "seniority", "compensation", "location", "employment_type")
+DIMENSIONS = (
+    "skills",
+    "responsibilities",
+    "seniority",
+    "compensation",
+    "location",
+    "employment_type",
+)
 
 
 class _C(BaseModel):
@@ -15,6 +22,12 @@ class _C(BaseModel):
 class SkillsCfg(_C):
     preferred_weight: float = Field(ge=0, le=1)
     transfer_credit: float = Field(ge=0, le=1)
+
+
+class ResponsibilitiesCfg(_C):
+    low: float = Field(ge=-1, le=1)
+    high: float = Field(ge=-1, le=1)
+    top_pairs: int = Field(ge=0, le=10)
 
 
 class SeniorityCfg(_C):
@@ -42,6 +55,7 @@ class ConfidenceCfg(_C):
 class ScoringConfig(_C):
     weights: dict[str, float]
     skills: SkillsCfg
+    responsibilities: ResponsibilitiesCfg
     seniority: SeniorityCfg
     compensation: CompensationCfg
     bands: BandsCfg
@@ -54,6 +68,8 @@ class ScoringConfig(_C):
             raise ValueError(f"unknown dimensions in weights: {sorted(unknown)}")
         if any(w <= 0 for w in self.weights.values()):
             raise ValueError("weights must be positive")
+        if self.responsibilities.low >= self.responsibilities.high:
+            raise ValueError("responsibilities: low must be below high")
         if self.bands.good > self.bands.strong:
             raise ValueError("bands: good must not exceed strong")
         return self

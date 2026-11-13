@@ -12,6 +12,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from matcher.embed import Embedder
 from matcher.extract import Extraction, extract, match_skills
 from matcher.schemas import Job, Profile
 from matcher.score import geo
@@ -111,6 +112,35 @@ def _skills(
     req_matched = sum(1 for s in matched if s.requirement == "required")
     evidence = [f"{req_matched} of {len(req)} required skills matched"] if req else []
     return _Dim(got / total, evidence), skills
+
+
+def _responsibilities(
+    ex: Extraction, profile: Profile, cfg: ScoringConfig, embedder: Embedder | None
+) -> _Dim:
+    """How close the job's duties are to what the candidate has done: for each duty, the most
+    similar experience bullet; their mean cosine, mapped from [low, high] to [0, 1]."""
+    if embedder is None:
+        return _Dim(None, ["embedding model not loaded"])
+    bullets = [b for e in profile.experience for b in (*e.responsibilities, *e.achievements)]
+    if not bullets:
+        return _Dim(None, ["no experience bullets in your profile"])
+    if not ex.duties:
+        return _Dim(None, ["no responsibilities in the posting"])
+    sims = embedder.embed(ex.duties) @ embedder.embed(bullets).T
+    best = sims.max(axis=1)
+    mean = round(float(best.mean()), 3)  # rounded before mapping: stable across platforms
+    c = cfg.responsibilities
+    value = min(max((mean - c.low) / (c.high - c.low), 0.0), 1.0)
+    order = sorted(range(len(ex.duties)), key=lambda i: (-float(best[i]), i))[: c.top_pairs]
+    evidence = [f"similarity {mean:.2f} on average over {len(ex.duties)} duties"] + [
+        f"{float(best[i]):.2f}: {_cut(ex.duties[i])} ~ {_cut(bullets[int(sims[i].argmax())])}"
+        for i in order
+    ]
+    return _Dim(value, evidence)
+
+
+def _cut(text: str, limit: int = 90) -> str:
+    return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
 def _seniority(ex: Extraction, profile: Profile, cfg: ScoringConfig) -> _Dim:
@@ -259,12 +289,16 @@ def _gate(constraint: str, dim: _Dim | None) -> Gate:
     )
 
 
-def score(profile: Profile, job: Job, tax: Taxonomy, cfg: ScoringConfig) -> MatchResult:
+def score(
+    profile: Profile, job: Job, tax: Taxonomy, cfg: ScoringConfig, embedder: Embedder | None = None
+) -> MatchResult:
+    """Without an embedder the responsibilities dimension is unknown (lower completeness)."""
     ex = extract(job.title, job.description_text, tax)
     skills_dim, skills = _skills(ex, candidate_skills(profile, tax), tax, cfg)
     location_dim, location_subs = _location(job, ex, profile)
     dims: dict[str, _Dim] = {
         "skills": skills_dim,
+        "responsibilities": _responsibilities(ex, profile, cfg, embedder),
         "seniority": _seniority(ex, profile, cfg),
         "compensation": _compensation(job, ex, profile, cfg),
         "location": location_dim,
@@ -355,6 +389,8 @@ def _explain(gates: list[Gate], skills: Skills, dims: dict[str, _Dim]) -> list[s
             "Transferable: "
             + ", ".join(f"{s.name} (you have {s.via})" for s in skills.transferable)
         )
+    if dims["responsibilities"].score is not None:
+        out.append("Responsibilities: " + dims["responsibilities"].evidence[0])
     for name in ("seniority", "compensation", "location", "employment_type"):
         if dims[name].score is not None and dims[name].evidence:
             out.append(f"{name.replace('_', ' ').capitalize()}: {'; '.join(dims[name].evidence)}")
