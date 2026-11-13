@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: jobradar-matcher
-  version: 0.2.0
+  version: 0.2.1
 paths:
   /healthz:
     get:
@@ -30,9 +30,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/Status'
         '503':
-          description: Service Unavailable
+          description: 'Not ready, or the model registry is unavailable: retry later'
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
   /v1/version:
@@ -49,9 +49,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/VersionInfo'
         '401':
-          description: Unauthorized
+          description: Missing or invalid bearer token
           content:
-            application/json:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          description: Invalid request
+          content:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
       security:
@@ -70,9 +76,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/ModelListing'
         '401':
-          description: Unauthorized
+          description: Missing or invalid bearer token
           content:
-            application/json:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          description: Invalid request
+          content:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
       security:
@@ -97,21 +109,21 @@ paths:
               schema:
                 $ref: '#/components/schemas/MatchResponse'
         '401':
-          description: Unauthorized
+          description: Missing or invalid bearer token
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
         '422':
-          description: Unprocessable Content
+          description: Invalid request
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
         '503':
-          description: Service Unavailable
+          description: 'Not ready, or the model registry is unavailable: retry later'
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
       security:
@@ -406,37 +418,6 @@ components:
       additionalProperties: false
       type: object
       title: Preferences
-    Problem:
-      properties:
-        type:
-          type: string
-          title: Type
-          default: about:blank
-        title:
-          type: string
-          title: Title
-        status:
-          type: integer
-          title: Status
-        detail:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Detail
-        errors:
-          anyOf:
-          - items:
-              additionalProperties: true
-              type: object
-            type: array
-          - type: 'null'
-          title: Errors
-      type: object
-      required:
-      - title
-      - status
-      title: Problem
-      description: RFC 9457 problem details.
     Profile:
       properties:
         schema_version:
@@ -645,6 +626,39 @@ components:
       - matcher_version
       - api_versions
       title: VersionInfo
+    Problem:
+      description: RFC 9457 problem details.
+      properties:
+        type:
+          default: about:blank
+          title: Type
+          type: string
+        title:
+          title: Title
+          type: string
+        status:
+          title: Status
+          type: integer
+        detail:
+          anyOf:
+          - type: string
+          - type: 'null'
+          default: null
+          title: Detail
+        errors:
+          anyOf:
+          - items:
+              additionalProperties: true
+              type: object
+            type: array
+          - type: 'null'
+          default: null
+          title: Errors
+      required:
+      - title
+      - status
+      title: Problem
+      type: object
   securitySchemes:
     HTTPBearer:
       type: http

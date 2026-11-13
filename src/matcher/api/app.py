@@ -12,6 +12,7 @@ from typing import Annotated, Any
 import structlog
 from fastapi import Depends, FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
+from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field, ValidationError
@@ -101,6 +102,24 @@ def problem(status: int, title: str, detail: str | None = None, **extra: Any) ->
     return JSONResponse(body.model_dump(exclude_none=True), status, media_type=PROBLEM_JSON)
 
 
+def problems(*codes: int) -> dict[int | str, dict[str, Any]]:
+    """Document error responses as they are sent: application/problem+json with the Problem
+    schema. Also replaces FastAPI's default 422 (its own validation-error shape), because
+    validation errors are problem+json here too."""
+    descriptions = {
+        401: "Missing or invalid bearer token",
+        422: "Invalid request",
+        503: "Not ready, or the model registry is unavailable: retry later",
+    }
+    return {
+        code: {
+            "description": descriptions[code],
+            "content": {PROBLEM_JSON: {"schema": {"$ref": "#/components/schemas/Problem"}}},
+        }
+        for code in codes
+    }
+
+
 _bearer = HTTPBearer(auto_error=False)
 
 
@@ -138,6 +157,19 @@ def create_app(settings: Settings, store: ModelStore | None = None) -> FastAPI:
         app.state.ready = False
 
     app = FastAPI(title="jobradar-matcher", version=MATCHER_VERSION, lifespan=lifespan)
+
+    def openapi() -> dict[str, Any]:
+        # Error responses reference Problem by $ref (see problems()); register it explicitly.
+        if app.openapi_schema is None:
+            schema = get_openapi(title=app.title, version=app.version, routes=app.routes)
+            components = schema.setdefault("components", {}).setdefault("schemas", {})
+            components["Problem"] = Problem.model_json_schema(
+                ref_template="#/components/schemas/{model}"
+            )
+            app.openapi_schema = schema
+        return app.openapi_schema
+
+    app.openapi = openapi  # type: ignore[method-assign]
     app.state.settings = settings
     app.state.ready = False
     app.state.embedder = None
@@ -182,7 +214,7 @@ def create_app(settings: Settings, store: ModelStore | None = None) -> FastAPI:
     @app.get(
         "/readyz",
         response_model=Status,
-        responses={503: {"model": Problem}},
+        responses=problems(503),
         tags=["health"],
     )
     async def readyz(request: Request) -> Status | JSONResponse:
@@ -193,7 +225,7 @@ def create_app(settings: Settings, store: ModelStore | None = None) -> FastAPI:
     @app.get(
         "/v1/version",
         response_model=VersionInfo,
-        responses={401: {"model": Problem}},
+        responses=problems(401, 422),
         dependencies=[Depends(require_token)],
         tags=["v1"],
     )
@@ -203,7 +235,7 @@ def create_app(settings: Settings, store: ModelStore | None = None) -> FastAPI:
     @app.get(
         "/v1/models",
         response_model=ModelListing,
-        responses={401: {"model": Problem}},
+        responses=problems(401, 422),
         dependencies=[Depends(require_token)],
         tags=["v1"],
     )
@@ -213,7 +245,7 @@ def create_app(settings: Settings, store: ModelStore | None = None) -> FastAPI:
     @app.post(
         "/v1/match",
         response_model=MatchResponse,
-        responses={401: {"model": Problem}, 422: {"model": Problem}, 503: {"model": Problem}},
+        responses=problems(401, 422, 503),
         dependencies=[Depends(require_token)],
         tags=["v1"],
     )
