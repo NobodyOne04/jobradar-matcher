@@ -71,8 +71,10 @@ class MLflowRegistry:
         params: dict[str, str],
         metrics: dict[str, float],
         tags: dict[str, str],
+        artifacts: dict[str, Path] | None = None,
     ) -> str:
-        """Log a run with the bundle and its eval metrics, and register it as a new version."""
+        """Log a run with the bundle, its eval metrics and extra artifact folders (by artifact
+        path), and register it as a new version."""
         from mlflow.exceptions import MlflowException
 
         self._mlflow.set_experiment(NAME)
@@ -82,6 +84,8 @@ class MLflowRegistry:
                 self._mlflow.log_metrics(metrics)
             self._mlflow.set_tags(tags)
             self._mlflow.log_artifacts(str(bundle_dir), "bundle")
+            for path, local in (artifacts or {}).items():
+                self._mlflow.log_artifacts(str(local), path)
         try:
             self.client.create_registered_model(NAME)
         except MlflowException as e:

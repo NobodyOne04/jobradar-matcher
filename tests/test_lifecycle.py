@@ -144,3 +144,19 @@ def test_versions_with_eval_metrics_pass_the_gate(registry: MLflowRegistry, tmp_
         "passed",
         [],
     )
+
+    # The version is tied to its data: the eval set and report are run artifacts with
+    # checksums, the profile only as a checksum, and the tags name dataset and commit.
+    mv = registry.client.get_model_version("jobradar-matcher", a.version)
+    assert mv.tags["eval_dataset_version"] == "1" and mv.tags["git_commit"]
+    got = Path(
+        registry._mlflow.artifacts.download_artifacts(
+            run_id=mv.run_id, artifact_path="eval", dst_path=str(tmp_path / "dl")
+        )
+    )
+    manifest = json.loads((got / "dataset.json").read_text())
+    assert manifest["dataset_sha256"] == mv.tags["eval_dataset_sha256"]
+    assert {f["name"] for f in manifest["files"]} == {"VERSION", "jobs.jsonl", "grades.jsonl"}
+    assert (got / "jobs.jsonl").read_bytes() == (eval_dir / "jobs.jsonl").read_bytes()
+    assert json.loads((got / "report.json").read_text())["metrics"] == a.metrics
+    assert not (got / "profile.yaml").exists()

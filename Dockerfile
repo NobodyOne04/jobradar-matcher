@@ -13,6 +13,9 @@ RUN /app/.venv/bin/matcher fetch-model /opt/models/bge-small-en-v1.5
 
 # Runtime: just Python and the venv, as a non-root user.
 FROM python:3.14.10-slim
+# The commit the image was built from, tagged on every model version `matcher train` registers.
+ARG GIT_COMMIT=unknown
+ENV MATCHER_GIT_COMMIT=$GIT_COMMIT
 RUN useradd --system --uid 10001 --no-create-home matcher \
     && mkdir -p /cache/models && chown -R matcher /cache  # downloaded model versions (a volume)
 COPY --from=build /app/.venv /app/.venv

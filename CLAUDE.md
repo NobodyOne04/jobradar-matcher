@@ -77,6 +77,9 @@ docker build -t jobradar-matcher:vX.Y.Z .
 - Before a PR that changes matching: `matcher eval run` + `matcher eval check` (dataset
   version 1 exists; its grades are a proxy, see `eval/README.md`). Never tune on the eval
   grades as training data; retraining uses application labels.
+- Every model version carries its data: `train` logs the eval set (`eval/`, with checksums in
+  `eval/dataset.json`), the report and tags `git_commit`, `eval_dataset_sha256`. Build images
+  with `--build-arg GIT_COMMIT=$(git rev-parse HEAD)`; the eval profile is logged as a hash only.
 - Error bodies never echo request input (it may be personal data): field paths only.
 - Tests use `httpx` with Starlette's `TestClient`; its deprecation warning about `httpx2`
   is known and accepted. Don't switch to `httpx2` without asking.
