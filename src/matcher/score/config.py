@@ -22,6 +22,7 @@ class _C(BaseModel):
 class SkillsCfg(_C):
     preferred_weight: float = Field(ge=0, le=1)
     transfer_credit: float = Field(ge=0, le=1)
+    min_evidence: float = Field(default=3, ge=1)  # ADR 0005; older bundles lack it
 
 
 class ResponsibilitiesCfg(_C):

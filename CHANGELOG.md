@@ -17,9 +17,11 @@
 - Scoring a job against a profile: skills (matched, transferable, missing), seniority, compensation with fixed FX rates, location/remote/time zone, employment type; hard constraints as pass/fail/unknown; banded score with separate confidence and completeness; explanations; `matcher score`
 - Skill taxonomy (151 data/backend skills) and deterministic extraction from postings: skills as required or preferred, years of experience, title level, salary text, regions, UTC offsets, unrecognized terms; `matcher extract`
 - ADRs 0001–0004 (Proposed): Python stack, hybrid matching, evaluation, model versions in MLflow
+- ADR 0005: skill evidence
 - Service skeleton: FastAPI app with `/healthz`, `/readyz`, `/v1/version`, bearer auth, problem+json errors, JSON logs with request IDs, committed `openapi.yaml`, Dockerfile, CI
 
 ### Changed
+- Skills dimension (ADR 0005): a posting naming fewer than `skills.min_evidence` (3) known skills is shrunk, one naming none scores 0 instead of unknown; eval baseline NDCG@10 0.18 → 0.63, P@10 0.20 → 0.60; version 0.3.0 (bundles with `min_evidence` need it)
 - Scoring defaults favour relevance: skills 0.40 and responsibilities 0.30 of the weight (were 0.35 and 0.15), duty matching from cosine 0.6 to 0.85 (was 0.5 to 0.8); eval baseline NDCG@10 0.10 → 0.18, P@10 0.10 → 0.20
 - Locations: Thailand, South Korea, Taiwan, Hong Kong; "Southeast Asia", "Asia", "Asia-Pacific" as regions
 - CI workflow disabled until the coding phases are done; checks run locally

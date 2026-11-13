@@ -1,0 +1,57 @@
+# 0005. Skills dimension: few known skills are weak evidence, none is a mismatch
+
+- Status: Accepted
+- Date: 2026-11-13
+
+The skills dimension stops scoring a posting with one recognized skill as a full match, and
+a posting with no recognized skill scores 0 on skills instead of unknown. This amends
+[ADR 0002](0002-hybrid-matching.adr) for this one dimension; the other dimensions and the
+gates keep "unknown is not a penalty".
+
+## Technical details
+
+**Problem** (eval set v1, [ADR 0003](0003-evaluation.adr)):
+- Skills is coverage: the share of the posting's required/preferred skills you have. A sales
+  posting that names one known skill you have (Excel, SQL) gets 1.0.
+- A posting with no recognized skill gets `null`, so it drops out of the mean. Two Account
+  Executive postings had only `location = 1.0` known and scored 100 "strong".
+- Result: with the v1 defaults 9 of the top 10 were sales, support or product roles; after
+  reweighting ([0004.6]) NDCG@10 is still 0.18 and P@10 0.20.
+
+**Decision.** In `score/_skills`, with `total` the weighted count of recognized skills
+(required 1.0, preferred `preferred_weight`) and `got` the matched credit:
+- `score = got / max(total, skills.min_evidence)`; new config key `skills.min_evidence`,
+  default 3. One matched skill out of one gives 0.33; ten out of ten still give 1.0.
+- `total == 0` gives `score = 0.0` with the evidence "no known skills found in the posting",
+  not `null`. The taxonomy covers data, backend and platform work (152 skills); a posting
+  naming none of them is outside your field, not a posting with missing data.
+- `completeness` counts skills as known in that case. `confidence` is unchanged: it already
+  drops with few recognized skills.
+- Explanations say "only N known skills in the posting" when `total < min_evidence`.
+
+**Effect, measured with a prototype on eval set v1** (with the [0004.6] weights):
+
+| | NDCG@10 | P@10 | false fails |
+|---|---|---|---|
+| weights only | 0.18 | 0.20 | 0 |
+| + shrink, no skills still unknown | 0.37 | 0.50 | 0 |
+| + shrink, no skills = 0 (this ADR) | 0.63 | 0.60 | 0 |
+
+`min_evidence` 3 and 5 gave the same numbers; 3 is the gentler one.
+
+**Consequences.**
+- Ships as a new model version (config key in the bundle, [ADR 0004](0004-mlflow-model-versions.adr))
+  and a matcher release (code); bundles without the key use 3.
+- A real data posting written without tool names now ranks low. That's acceptable: the
+  responsibilities dimension still credits its duties, and `unrecognized` terms feed
+  taxonomy updates.
+- A profile outside the taxonomy's field (not yours) would see every posting score 0 on
+  skills. The taxonomy is the scope (SPEC), so this is noted, not handled.
+
+## Technologies and alternatives
+- Involved: no new dependency.
+- Alternatives:
+  - Rank by confidence too: the eval and the UI sort by score; confidence stays separate
+    (SPEC §6.4).
+  - Multiply relevance by eligibility: NDCG@10 0.36 alone, no gain on top of this rule.
+  - A title classifier (data vs not): needs labels; revisit with application labels.

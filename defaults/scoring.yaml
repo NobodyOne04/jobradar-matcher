@@ -12,6 +12,7 @@ weights:               # relative; only dimensions with data count (see complete
 skills:
   preferred_weight: 0.5     # a preferred skill counts half as much as a required one
   transfer_credit: 0.5      # a related skill the candidate has earns this much of a match
+  min_evidence: 3           # fewer known skills in a posting shrink the score (ADR 0005)
 
 responsibilities:           # bge-small cosine, mean of each duty's best match with your bullets
   low: 0.6                  # at or below: 0 (sales/support duties vs data bullets: ~0.65)
