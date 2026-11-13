@@ -9,6 +9,11 @@ shortcut: training on application labels (logistic regression on dimension score
 here yet; it needs the backend's label export (jobradar ADR 0008). Add `--labels` then.
 """
 
+import hashlib
+import json
+import os
+import shutil
+import subprocess
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -24,6 +29,50 @@ from matcher.schemas import Profile
 
 DEFAULT_TAXONOMY = Path("data/skills.yaml")
 DEFAULT_CONFIG = Path("defaults/scoring.yaml")
+# The eval set files a run snapshots, so a version stays tied to the exact data it was measured
+# on after eval/ moves on. The profile is personal: only its checksum is logged.
+EVAL_FILES = ("VERSION", "jobs.jsonl", "grades.jsonl", "skills.jsonl", "tolerances.yaml")
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def git_commit() -> str:
+    """The matcher commit: MATCHER_GIT_COMMIT (set in the image), else the checkout's HEAD."""
+    if commit := os.environ.get("MATCHER_GIT_COMMIT"):
+        return commit
+    git = shutil.which("git")
+    if git is None:
+        return "unknown"
+    try:
+        out = subprocess.run(  # noqa: S603  fixed arguments, no input
+            [git, "rev-parse", "HEAD"], capture_output=True, text=True, check=True, timeout=5
+        )
+        return out.stdout.strip()
+    except OSError, subprocess.SubprocessError:
+        return "unknown"
+
+
+def snapshot_eval(eval_dir: Path, profile: Path, report: dict[str, Any], dest: Path) -> str:
+    """Copy the eval set and the report into dest with a checksum manifest; returns the
+    dataset checksum (over the data files, not the report)."""
+    dest.mkdir()
+    files = []
+    for name in EVAL_FILES:
+        if (eval_dir / name).is_file():
+            shutil.copyfile(eval_dir / name, dest / name)
+            files.append({"name": name, "sha256": _sha256(dest / name)})
+    digest = hashlib.sha256(json.dumps(files, sort_keys=True).encode()).hexdigest()
+    manifest = {
+        "dataset_version": report["dataset_version"],
+        "dataset_sha256": digest,
+        "files": files,
+        "profile_sha256": _sha256(profile),
+    }
+    (dest / "dataset.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    (dest / "report.json").write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+    return digest
 
 
 @dataclass
@@ -54,6 +103,7 @@ def train(
 
         metrics: dict[str, float] = {}
         dataset_version = None
+        digest = ""
         has_eval = (eval_dir / "grades.jsonl").exists() or (eval_dir / "skills.jsonl").exists()
         if has_eval and eval_profile.is_file():
             profile = Profile.model_validate(
@@ -62,18 +112,25 @@ def train(
             result = run(eval_dir, profile, b.taxonomy, b.config, embedder)
             metrics = dict(result["metrics"])
             dataset_version = str(result["dataset_version"])
+            digest = snapshot_eval(eval_dir, eval_profile, result, tmp / "eval")
 
-        tags = {"parent": parent or "", "source": "defaults" if parent is None else "derived"}
+        tags = {
+            "parent": parent or "",
+            "source": "defaults" if parent is None else "derived",
+            "git_commit": git_commit(),
+        }
         emb = b.manifest.embedding_model
         if dataset_version:
             tags["eval_dataset_version"] = dataset_version
+            tags["eval_dataset_sha256"] = digest
         params = {
             "parent": parent or "none",
             "matcher_version": bundle.MATCHER_VERSION,
             "embedding_model": f"{emb.model}@{emb.revision}",
             "seed": str(b.manifest.seed),
         }
-        version = reg.register(new, params, metrics, tags)
+        extra = {"eval": tmp / "eval"} if dataset_version else {}
+        version = reg.register(new, params, metrics, tags, extra)
     return Trained(version=version, metrics=metrics, dataset_version=dataset_version)
 
 
