@@ -26,7 +26,7 @@ WORKDIR /app
 # Nothing is downloaded at runtime: the model is in the image.
 ENV PATH=/app/.venv/bin:$PATH PYTHONUNBUFFERED=1 HF_HUB_OFFLINE=1 \
     MATCHER_EMBEDDING_DIR=/opt/models/bge-small-en-v1.5 MATCHER_CACHE_DIR=/cache/models \
-    MLFLOW_DISABLE_AGENT_HINT=1
+    MLFLOW_DISABLE_AGENT_HINT=1 GIT_PYTHON_REFRESH=quiet
 USER matcher
 EXPOSE 8000
 CMD ["matcher", "serve"]

@@ -9,7 +9,7 @@ extend COUNTRIES when real postings or profiles name others.
 import re
 
 # ISO 3166-1 alpha-2 -> (name, regions). Regions: Europe, EU, EMEA, North America, Americas,
-# LATAM, APAC.
+# LATAM, APAC, SEA (Southeast Asia).
 COUNTRIES: dict[str, tuple[str, frozenset[str]]] = {
     code: (name, frozenset(regions.split()))
     for code, name, regions in [
@@ -61,14 +61,18 @@ COUNTRIES: dict[str, tuple[str, frozenset[str]]] = {
         ("PE", "Peru", "Americas LATAM"),
         ("UY", "Uruguay", "Americas LATAM"),
         ("IN", "India", "APAC"),
-        ("SG", "Singapore", "APAC"),
+        ("SG", "Singapore", "APAC SEA"),
         ("AU", "Australia", "APAC"),
         ("NZ", "New Zealand", "APAC"),
         ("JP", "Japan", "APAC"),
-        ("PH", "Philippines", "APAC"),
-        ("VN", "Vietnam", "APAC"),
-        ("ID", "Indonesia", "APAC"),
-        ("MY", "Malaysia", "APAC"),
+        ("PH", "Philippines", "APAC SEA"),
+        ("VN", "Vietnam", "APAC SEA"),
+        ("ID", "Indonesia", "APAC SEA"),
+        ("MY", "Malaysia", "APAC SEA"),
+        ("TH", "Thailand", "APAC SEA"),
+        ("KR", "South Korea", "APAC"),
+        ("TW", "Taiwan", "APAC"),
+        ("HK", "Hong Kong", "APAC"),
     ]
 }
 ALL = frozenset(COUNTRIES)
@@ -96,6 +100,11 @@ _REGION_NAMES = {
     "latam": "LATAM",
     "latin america": "LATAM",
     "apac": "APAC",
+    "asia pacific": "APAC",
+    "asia-pacific": "APAC",
+    "asia": "APAC",
+    "southeast asia": "SEA",
+    "south east asia": "SEA",
 }
 _WORLDWIDE = {"worldwide", "anywhere", "global", "globally"}
 
