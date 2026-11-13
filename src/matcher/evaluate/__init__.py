@@ -149,7 +149,7 @@ def _p95(values: list[float]) -> float:
 
 def run(
     eval_dir: Path, profile: Profile, tax: Taxonomy, cfg: ScoringConfig, embedder: Embedder | None
-) -> dict[str, object]:
+) -> dict[str, Any]:
     jobs = {j.job_id: j.job for j in read_jsonl(eval_dir / "jobs.jsonl", EvalJob)}
     grades = [g for g in read_jsonl(eval_dir / "grades.jsonl", Grade) if g.job_id in jobs]
     labels = [s for s in read_jsonl(eval_dir / "skills.jsonl", SkillLabels) if s.job_id in jobs]

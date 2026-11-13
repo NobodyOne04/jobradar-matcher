@@ -13,7 +13,8 @@ RUN /app/.venv/bin/matcher fetch-model /opt/models/bge-small-en-v1.5
 
 # Runtime: just Python and the venv, as a non-root user.
 FROM python:3.14.10-slim
-RUN useradd --system --uid 10001 --no-create-home matcher
+RUN useradd --system --uid 10001 --no-create-home matcher \
+    && mkdir -p /cache/models && chown -R matcher /cache  # downloaded model versions (a volume)
 COPY --from=build /app/.venv /app/.venv
 COPY --from=build /opt/models /opt/models
 COPY data /app/data
@@ -21,7 +22,8 @@ COPY defaults /app/defaults
 WORKDIR /app
 # Nothing is downloaded at runtime: the model is in the image.
 ENV PATH=/app/.venv/bin:$PATH PYTHONUNBUFFERED=1 HF_HUB_OFFLINE=1 \
-    MATCHER_EMBEDDING_DIR=/opt/models/bge-small-en-v1.5
+    MATCHER_EMBEDDING_DIR=/opt/models/bge-small-en-v1.5 MATCHER_CACHE_DIR=/cache/models \
+    MLFLOW_DISABLE_AGENT_HINT=1
 USER matcher
 EXPOSE 8000
 CMD ["matcher", "serve"]
