@@ -48,6 +48,8 @@ docker build -t jobradar-matcher:vX.Y.Z .
   checksums and compatibility checks; `registry.py`: MLflow (register, champion alias,
   download); `models.py`: the server's cache of versions (`MATCHER_CACHE_DIR`, a volume);
   `lifecycle.py`: train and promote
+- `src/matcher/metrics.py`: Prometheus metrics at `/metrics` (not in the contract, compose
+  network only): requests by route template and code, match duration by model version
 - `src/matcher/api/app.py`: also `POST /v1/match` (names its model version; bad jobs are
   item-level errors) and `GET /v1/models`
 - `tests/fixtures/`: recorded real postings, and the fictional example profile

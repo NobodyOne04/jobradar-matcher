@@ -6,6 +6,7 @@
 - openapi.yaml documented error responses as application/json with FastAPI's validation shape; they are application/problem+json with the Problem schema, as sent (0.2.1)
 
 ### Added
+- `/metrics` (Prometheus): requests by route template and code, match duration by model version; a test checks that profile content never appears in logs
 - Model versions in MLflow: bundles (taxonomy + scoring config, checksummed, compatibility-checked), `matcher train` (from defaults or a parent, with eval metrics when the eval set exists), `matcher promote` (eval gate, `--force`, rollback), `matcher models`
 - `POST /v1/match` (explicit model version, batches of up to 50, item-level errors) and `GET /v1/models`; versions cached on disk so matching keeps working while MLflow is down; version 0.2.0
 - Evaluation tooling: `matcher eval grade` and `eval skills` (one posting at a time, resumable), `eval run` (skill precision/recall, required accuracy, NDCG@10, P@10, false fails, latency, low-confidence share), `eval check` (regression gate with tolerances); job export query and walkthrough in `eval/`
