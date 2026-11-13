@@ -38,6 +38,19 @@ def main(argv: list[str] | None = None) -> int:
         default=Path(".models/bge-small-en-v1.5"),
         help="embedding model dir; responsibilities are unknown if it is missing",
     )
+    ev = sub.add_parser("eval", help="the evaluation set (ADR 0003)")
+    evs = ev.add_subparsers(dest="eval_command", required=True)
+    evs.add_parser("grade", help="grade each job's fit for you, 0-3, one at a time")
+    evs.add_parser("skills", help="correct the extracted skills of each job")
+    er = evs.add_parser("run", help="compute the metrics")
+    er.add_argument("--profile", type=Path, required=True, help="the eval profile (not committed)")
+    er.add_argument("--out", type=Path, help="write the metrics JSON here as well")
+    ec = evs.add_parser("check", help="compare metrics with the baseline; exit 1 on regression")
+    ec.add_argument("metrics", type=Path)
+    ev.add_argument("--dir", type=Path, default=Path("eval"))
+    ev.add_argument("--taxonomy", type=Path, default=Path("data/skills.yaml"))
+    ev.add_argument("--config", type=Path, default=Path("defaults/scoring.yaml"))
+    ev.add_argument("--model", type=Path, default=Path(".models/bge-small-en-v1.5"))
     fm = sub.add_parser("fetch-model", help="download the pinned embedding model and verify it")
     fm.add_argument("dir", type=Path, nargs="?", default=Path(".models/bge-small-en-v1.5"))
     args = parser.parse_args(argv)
@@ -45,6 +58,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "openapi":
         sys.stdout.write(openapi_yaml())
         return 0
+    if args.command == "eval":
+        return _eval(args)
     if args.command == "fetch-model":
         from matcher.embed import fetch, manifest
 
@@ -96,6 +111,49 @@ def main(argv: list[str] | None = None) -> int:
         log_level="warning",
     )
     return 0
+
+
+def _eval(args: argparse.Namespace) -> int:
+    from matcher.taxonomy import load as load_taxonomy
+
+    if args.eval_command == "grade":
+        from matcher.evaluate.interactive import grade_session
+
+        grade_session(args.dir)
+        return 0
+    if args.eval_command == "skills":
+        from matcher.evaluate.interactive import skills_session
+
+        skills_session(args.dir, load_taxonomy(args.taxonomy))
+        return 0
+    if args.eval_command == "run":
+        from matcher.embed import Embedder, manifest
+        from matcher.evaluate import run
+        from matcher.schemas import Profile
+        from matcher.score.config import load as load_config
+
+        profile = Profile.model_validate(yaml.safe_load(args.profile.read_text(encoding="utf-8")))
+        embedder = Embedder(args.model, manifest()) if args.model.is_dir() else None
+        result = run(
+            args.dir, profile, load_taxonomy(args.taxonomy), load_config(args.config), embedder
+        )
+        out = json.dumps(result, indent=2, sort_keys=True)
+        print(out)
+        if args.out:
+            args.out.write_text(out + "\n", encoding="utf-8")
+        return 0
+    # check
+    from matcher.evaluate import check
+
+    problems = check(
+        json.loads(args.metrics.read_text(encoding="utf-8")),
+        json.loads((args.dir / "baseline.json").read_text(encoding="utf-8")),
+        yaml.safe_load((args.dir / "tolerances.yaml").read_text(encoding="utf-8")),
+    )
+    for p in problems:
+        print("FAIL", p, file=sys.stderr)
+    print("eval gate passed" if not problems else f"eval gate failed: {len(problems)} problem(s)")
+    return 1 if problems else 0
 
 
 if __name__ == "__main__":
