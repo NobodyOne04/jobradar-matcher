@@ -1,0 +1,206 @@
+# Skill taxonomy (matcher ADR 0002). Part of every model version (ADR 0004).
+#
+# Each skill: id (stable, lowercase), name, category, aliases (matched case-insensitively on
+# whole tokens, 1-4 words), optional `cased` aliases (matched only in exactly this case: for
+# names that are also common words, like "Go" or "R"), optional `related` skill ids (a
+# related skill the candidate has counts as transferable, with partial credit).
+#
+# Grow it from the "unrecognized" terms that extraction reports on real postings.
+
+categories:
+  - language
+  - processing
+  - orchestration
+  - warehouse
+  - database
+  - streaming
+  - cloud
+  - infrastructure
+  - devops
+  - ml
+  - bi
+  - quality
+  - format
+  - api
+  - practice
+
+skills:
+  # Languages
+  - {id: python, name: Python, category: language, aliases: [python, python3]}
+  - {id: sql, name: SQL, category: language, aliases: [sql, ansi sql, t-sql, tsql, pl/sql, plsql]}
+  - {id: scala, name: Scala, category: language, aliases: [scala], related: [java, kotlin]}
+  - {id: java, name: Java, category: language, aliases: [java, jvm], related: [scala, kotlin]}
+  - {id: kotlin, name: Kotlin, category: language, aliases: [kotlin], related: [java, scala]}
+  - {id: go, name: Go, category: language, aliases: [golang], cased: [Go]}
+  - {id: rust, name: Rust, category: language, aliases: [rust, rustlang]}
+  - {id: nodejs, name: Node.js, category: language, aliases: [node.js, nodejs], related: [javascript, typescript]}
+  - {id: typescript, name: TypeScript, category: language, aliases: [typescript], related: [javascript]}
+  - {id: javascript, name: JavaScript, category: language, aliases: [javascript, ecmascript], cased: [JS], related: [typescript]}
+  - {id: r, name: R, category: language, aliases: [rstats, r language], cased: [R]}
+  - {id: bash, name: Bash, category: language, aliases: [bash, shell scripting, shell script, zsh]}
+  - {id: csharp, name: "C#", category: language, aliases: ["c#", csharp, .net, dotnet]}
+  - {id: cpp, name: "C++", category: language, aliases: ["c++", cpp]}
+  - {id: ruby, name: Ruby, category: language, aliases: [ruby, ruby on rails]}
+  - {id: php, name: PHP, category: language, aliases: [php]}
+
+  # Batch processing and transformation
+  - {id: spark, name: Apache Spark, category: processing, aliases: [spark, apache spark, pyspark, spark sql, sparksql], related: [databricks, flink, beam, dask]}
+  - {id: dbt, name: dbt, category: processing, aliases: [dbt, data build tool, dbt core, dbt cloud], related: [sqlmesh, dataform]}
+  - {id: sqlmesh, name: SQLMesh, category: processing, aliases: [sqlmesh], related: [dbt]}
+  - {id: dataform, name: Dataform, category: processing, aliases: [dataform], related: [dbt]}
+  - {id: pandas, name: pandas, category: processing, aliases: [pandas], related: [polars, dask]}
+  - {id: polars, name: Polars, category: processing, aliases: [polars], related: [pandas, duckdb]}
+  - {id: dask, name: Dask, category: processing, aliases: [dask], related: [spark, ray, pandas]}
+  - {id: ray, name: Ray, category: processing, aliases: [ray.io, ray core, ray cluster], related: [dask, spark]}
+  - {id: beam, name: Apache Beam, category: processing, aliases: [apache beam, beam], related: [dataflow, flink, spark]}
+  - {id: hadoop, name: Hadoop, category: processing, aliases: [hadoop, hdfs, mapreduce], related: [spark, hive]}
+  - {id: hive, name: Apache Hive, category: processing, aliases: [hive, apache hive, hiveql], related: [hadoop, trino]}
+  - {id: trino, name: Trino, category: processing, aliases: [trino, presto, prestodb, starburst], related: [athena, hive]}
+  - {id: duckdb, name: DuckDB, category: processing, aliases: [duckdb], related: [polars]}
+  - {id: databricks, name: Databricks, category: processing, aliases: [databricks, delta live tables, unity catalog], related: [spark, delta_lake]}
+  - {id: fivetran, name: Fivetran, category: processing, aliases: [fivetran], related: [airbyte, stitch]}
+  - {id: airbyte, name: Airbyte, category: processing, aliases: [airbyte], related: [fivetran, meltano]}
+  - {id: stitch, name: Stitch, category: processing, aliases: [stitch data, stitchdata], related: [fivetran]}
+  - {id: meltano, name: Meltano, category: processing, aliases: [meltano, singer taps], related: [airbyte]}
+  - {id: dlt, name: dlt, category: processing, aliases: [dlthub, dlt hub], related: [airbyte]}
+  - {id: glue, name: AWS Glue, category: processing, aliases: [aws glue, glue jobs, glue catalog], related: [spark, emr]}
+  - {id: emr, name: Amazon EMR, category: processing, aliases: [emr, amazon emr, aws emr], related: [spark, hadoop, glue]}
+  - {id: dataproc, name: Google Dataproc, category: processing, aliases: [dataproc, cloud dataproc], related: [spark, emr]}
+  - {id: dataflow, name: Google Dataflow, category: processing, aliases: [dataflow, cloud dataflow, google dataflow], related: [beam]}
+
+  # Orchestration
+  - {id: airflow, name: Apache Airflow, category: orchestration, aliases: [airflow, apache airflow, cloud composer, mwaa], related: [dagster, prefect, luigi, argo]}
+  - {id: dagster, name: Dagster, category: orchestration, aliases: [dagster], related: [airflow, prefect]}
+  - {id: prefect, name: Prefect, category: orchestration, aliases: [prefect], related: [airflow, dagster]}
+  - {id: luigi, name: Luigi, category: orchestration, aliases: [luigi], related: [airflow]}
+  - {id: argo, name: Argo Workflows, category: orchestration, aliases: [argo workflows, argo, argocd, argo cd], related: [airflow, kubernetes]}
+  - {id: step_functions, name: AWS Step Functions, category: orchestration, aliases: [step functions, aws step functions], related: [airflow]}
+  - {id: mage, name: Mage, category: orchestration, aliases: [mage.ai, mage ai], related: [airflow]}
+
+  # Warehouses and lakehouse
+  - {id: snowflake, name: Snowflake, category: warehouse, aliases: [snowflake, snowpark, snowpipe], related: [bigquery, redshift, databricks]}
+  - {id: bigquery, name: BigQuery, category: warehouse, aliases: [bigquery, big query, bq], related: [snowflake, redshift]}
+  - {id: redshift, name: Amazon Redshift, category: warehouse, aliases: [redshift, amazon redshift, aws redshift], related: [snowflake, bigquery]}
+  - {id: synapse, name: Azure Synapse, category: warehouse, aliases: [synapse, azure synapse, azure synapse analytics], related: [snowflake, fabric]}
+  - {id: fabric, name: Microsoft Fabric, category: warehouse, aliases: [microsoft fabric, ms fabric], related: [synapse, databricks]}
+  - {id: clickhouse, name: ClickHouse, category: warehouse, aliases: [clickhouse], related: [druid, pinot]}
+  - {id: druid, name: Apache Druid, category: warehouse, aliases: [druid, apache druid], related: [clickhouse, pinot]}
+  - {id: pinot, name: Apache Pinot, category: warehouse, aliases: [pinot, apache pinot], related: [druid, clickhouse]}
+  - {id: athena, name: Amazon Athena, category: warehouse, aliases: [athena, amazon athena, aws athena], related: [trino]}
+  - {id: delta_lake, name: Delta Lake, category: warehouse, aliases: [delta lake, delta tables], related: [iceberg, hudi, databricks]}
+  - {id: iceberg, name: Apache Iceberg, category: warehouse, aliases: [iceberg, apache iceberg], related: [delta_lake, hudi]}
+  - {id: hudi, name: Apache Hudi, category: warehouse, aliases: [hudi, apache hudi], related: [iceberg, delta_lake]}
+  - {id: lakehouse, name: Lakehouse architecture, category: practice, aliases: [lakehouse, data lakehouse], related: [delta_lake, iceberg, data_lake]}
+
+  # Operational databases
+  - {id: postgresql, name: PostgreSQL, category: database, aliases: [postgresql, postgres, psql, postgis], related: [mysql]}
+  - {id: mysql, name: MySQL, category: database, aliases: [mysql, mariadb], related: [postgresql]}
+  - {id: sql_server, name: SQL Server, category: database, aliases: [sql server, mssql, ms sql, microsoft sql server], related: [postgresql]}
+  - {id: oracle, name: Oracle Database, category: database, aliases: [oracle, oracle db, oracle database], related: [postgresql]}
+  - {id: mongodb, name: MongoDB, category: database, aliases: [mongodb, mongo], related: [dynamodb, cassandra]}
+  - {id: cassandra, name: Cassandra, category: database, aliases: [cassandra, scylladb, scylla], related: [dynamodb, mongodb]}
+  - {id: dynamodb, name: DynamoDB, category: database, aliases: [dynamodb, dynamo db], related: [cassandra, mongodb]}
+  - {id: redis, name: Redis, category: database, aliases: [redis, valkey]}
+  - {id: elasticsearch, name: Elasticsearch, category: database, aliases: [elasticsearch, elastic search, opensearch, elk stack], related: [solr]}
+  - {id: solr, name: Apache Solr, category: database, aliases: [solr], related: [elasticsearch]}
+  - {id: neo4j, name: Neo4j, category: database, aliases: [neo4j, cypher]}
+  - {id: bigtable, name: Bigtable, category: database, aliases: [bigtable, cloud bigtable, hbase], related: [cassandra]}
+  - {id: vector_db, name: Vector databases, category: database, aliases: [vector database, vector databases, pgvector, pinecone, weaviate, qdrant, milvus]}
+
+  # Streaming
+  - {id: kafka, name: Apache Kafka, category: streaming, aliases: [kafka, apache kafka, kafka streams, ksql, ksqldb, confluent, kafka connect], related: [kinesis, pubsub, pulsar, redpanda]}
+  - {id: flink, name: Apache Flink, category: streaming, aliases: [flink, apache flink, pyflink], related: [spark_streaming, kafka, beam]}
+  - {id: spark_streaming, name: Spark Structured Streaming, category: streaming, aliases: [spark streaming, structured streaming], related: [flink, spark]}
+  - {id: kinesis, name: Amazon Kinesis, category: streaming, aliases: [kinesis, amazon kinesis, kinesis firehose], related: [kafka]}
+  - {id: pubsub, name: Google Pub/Sub, category: streaming, aliases: [pub/sub, pubsub, cloud pub/sub, google pub/sub], related: [kafka]}
+  - {id: pulsar, name: Apache Pulsar, category: streaming, aliases: [pulsar, apache pulsar], related: [kafka]}
+  - {id: redpanda, name: Redpanda, category: streaming, aliases: [redpanda], related: [kafka]}
+  - {id: rabbitmq, name: RabbitMQ, category: streaming, aliases: [rabbitmq, amqp], related: [kafka, sqs]}
+  - {id: sqs, name: Amazon SQS, category: streaming, aliases: [sqs, amazon sqs, sns], related: [rabbitmq]}
+  - {id: debezium, name: Debezium, category: streaming, aliases: [debezium], related: [cdc, kafka]}
+  - {id: cdc, name: Change data capture, category: practice, aliases: [cdc, change data capture], related: [debezium]}
+
+  # Cloud platforms
+  - {id: aws, name: AWS, category: cloud, aliases: [aws, amazon web services], related: [gcp, azure]}
+  - {id: gcp, name: Google Cloud, category: cloud, aliases: [gcp, google cloud, google cloud platform], related: [aws, azure]}
+  - {id: azure, name: Microsoft Azure, category: cloud, aliases: [azure, microsoft azure, azure data factory, adf], related: [aws, gcp]}
+  - {id: s3, name: Amazon S3, category: cloud, aliases: [s3, amazon s3, aws s3], related: [gcs, adls]}
+  - {id: gcs, name: Google Cloud Storage, category: cloud, aliases: [gcs, google cloud storage], related: [s3, adls]}
+  - {id: adls, name: Azure Data Lake Storage, category: cloud, aliases: [adls, adls gen2, azure data lake, azure blob storage], related: [s3, gcs]}
+  - {id: lambda, name: AWS Lambda, category: cloud, aliases: [aws lambda, lambda functions, serverless, cloud functions, cloud run], related: [aws]}
+
+  # Infrastructure and DevOps
+  - {id: docker, name: Docker, category: infrastructure, aliases: [docker, containers, containerization, docker compose], related: [kubernetes]}
+  - {id: kubernetes, name: Kubernetes, category: infrastructure, aliases: [kubernetes, k8s, eks, gke, aks, helm, openshift], related: [docker]}
+  - {id: terraform, name: Terraform, category: infrastructure, aliases: [terraform, opentofu, terragrunt], related: [pulumi, cloudformation]}
+  - {id: pulumi, name: Pulumi, category: infrastructure, aliases: [pulumi], related: [terraform]}
+  - {id: cloudformation, name: CloudFormation, category: infrastructure, aliases: [cloudformation, aws cdk, cdk], related: [terraform]}
+  - {id: ansible, name: Ansible, category: infrastructure, aliases: [ansible], related: [terraform]}
+  - {id: iac, name: Infrastructure as code, category: practice, aliases: [infrastructure as code, iac], related: [terraform]}
+  - {id: linux, name: Linux, category: infrastructure, aliases: [linux, unix]}
+  - {id: git, name: Git, category: devops, aliases: [git, github, gitlab, bitbucket, version control]}
+  - {id: cicd, name: CI/CD, category: devops, aliases: [ci/cd, cicd, continuous integration, continuous delivery, continuous deployment, github actions, gitlab ci, jenkins, circleci]}
+  - {id: observability, name: Observability, category: devops, aliases: [observability, monitoring, prometheus, grafana, datadog, opentelemetry, new relic]}
+
+  # ML and AI
+  - {id: ml, name: Machine learning, category: ml, aliases: [machine learning, ml], related: [mlops]}
+  - {id: mlops, name: MLOps, category: ml, aliases: [mlops, ml ops, ml platform, model serving, feature store], related: [mlflow, ml]}
+  - {id: mlflow, name: MLflow, category: ml, aliases: [mlflow], related: [mlops, kubeflow]}
+  - {id: kubeflow, name: Kubeflow, category: ml, aliases: [kubeflow], related: [mlflow, sagemaker]}
+  - {id: sagemaker, name: SageMaker, category: ml, aliases: [sagemaker, amazon sagemaker], related: [vertex_ai]}
+  - {id: vertex_ai, name: Vertex AI, category: ml, aliases: [vertex ai], related: [sagemaker]}
+  - {id: scikit_learn, name: scikit-learn, category: ml, aliases: [scikit-learn, scikit learn, sklearn]}
+  - {id: pytorch, name: PyTorch, category: ml, aliases: [pytorch, torch], related: [tensorflow]}
+  - {id: tensorflow, name: TensorFlow, category: ml, aliases: [tensorflow, keras], related: [pytorch]}
+  - {id: llm, name: LLMs, category: ml, aliases: [llm, llms, large language models, generative ai, genai, rag, langchain, prompt engineering]}
+  - {id: nlp, name: NLP, category: ml, aliases: [nlp, natural language processing]}
+
+  # BI and analytics
+  - {id: looker, name: Looker, category: bi, aliases: [looker, lookml, looker studio], related: [tableau, power_bi]}
+  - {id: tableau, name: Tableau, category: bi, aliases: [tableau], related: [looker, power_bi]}
+  - {id: power_bi, name: Power BI, category: bi, aliases: [power bi, powerbi, dax], related: [tableau, looker]}
+  - {id: superset, name: Apache Superset, category: bi, aliases: [superset, apache superset, preset], related: [metabase, looker]}
+  - {id: metabase, name: Metabase, category: bi, aliases: [metabase], related: [superset]}
+  - {id: mode, name: Mode, category: bi, aliases: [mode analytics]}
+  - {id: excel, name: Excel, category: bi, aliases: [excel, microsoft excel, spreadsheets, google sheets]}
+  - {id: semantic_layer, name: Semantic layer, category: practice, aliases: [semantic layer, metrics layer, cube.dev, dbt semantic layer], related: [looker]}
+
+  # Data quality, governance and catalogs
+  - {id: great_expectations, name: Great Expectations, category: quality, aliases: [great expectations, gx], related: [soda, data_quality]}
+  - {id: soda, name: Soda, category: quality, aliases: [soda core, soda checks], related: [great_expectations]}
+  - {id: monte_carlo, name: Monte Carlo, category: quality, aliases: [monte carlo data], related: [data_observability]}
+  - {id: data_quality, name: Data quality, category: quality, aliases: [data quality, data validation, data testing], related: [great_expectations]}
+  - {id: data_observability, name: Data observability, category: quality, aliases: [data observability, data reliability], related: [data_quality]}
+  - {id: data_governance, name: Data governance, category: quality, aliases: [data governance, data stewardship, gdpr, data privacy], related: [data_catalog]}
+  - {id: data_catalog, name: Data catalog, category: quality, aliases: [data catalog, datahub, amundsen, openmetadata, collibra, alation], related: [data_lineage]}
+  - {id: data_lineage, name: Data lineage, category: quality, aliases: [data lineage, lineage, openlineage, marquez], related: [data_catalog]}
+
+  # Formats
+  - {id: parquet, name: Parquet, category: format, aliases: [parquet, apache parquet], related: [avro, orc]}
+  - {id: avro, name: Avro, category: format, aliases: [avro, apache avro], related: [parquet, protobuf]}
+  - {id: orc, name: ORC, category: format, aliases: [orc], related: [parquet]}
+  - {id: protobuf, name: Protocol Buffers, category: format, aliases: [protobuf, protocol buffers, grpc], related: [avro]}
+  - {id: arrow, name: Apache Arrow, category: format, aliases: [arrow, apache arrow, pyarrow], related: [parquet]}
+  - {id: json_format, name: JSON, category: format, aliases: [json, jsonl, ndjson]}
+
+  # APIs and backend
+  - {id: rest_api, name: REST APIs, category: api, aliases: [rest api, rest apis, restful, openapi], related: [graphql]}
+  - {id: graphql, name: GraphQL, category: api, aliases: [graphql], related: [rest_api]}
+  - {id: fastapi, name: FastAPI, category: api, aliases: [fastapi], related: [flask, django]}
+  - {id: flask, name: Flask, category: api, aliases: [flask], related: [fastapi, django]}
+  - {id: django, name: Django, category: api, aliases: [django], related: [flask, fastapi]}
+  - {id: microservices, name: Microservices, category: practice, aliases: [microservices, microservice architecture, distributed systems], related: [rest_api]}
+
+  # Practices
+  - {id: data_modeling, name: Data modeling, category: practice, aliases: [data modeling, data modelling, dimensional modeling, dimensional modelling, kimball, data vault, star schema, snowflake schema], related: [data_warehousing]}
+  - {id: data_warehousing, name: Data warehousing, category: practice, aliases: [data warehousing, data warehouse, data warehouses, dwh, edw], related: [data_modeling]}
+  - {id: etl, name: ETL/ELT, category: practice, aliases: [etl, elt, etl pipelines, elt pipelines, data pipelines, data pipeline, data ingestion], related: [data_warehousing]}
+  - {id: data_lake, name: Data lakes, category: practice, aliases: [data lake, data lakes], related: [lakehouse]}
+  - {id: data_mesh, name: Data mesh, category: practice, aliases: [data mesh, data products, data contracts], related: [data_governance]}
+  - {id: batch_processing, name: Batch processing, category: practice, aliases: [batch processing, batch pipelines], related: [etl]}
+  - {id: stream_processing, name: Stream processing, category: practice, aliases: [stream processing, real-time processing, real-time data, event streaming, event-driven architecture], related: [kafka, flink]}
+  - {id: testing, name: Software testing, category: practice, aliases: [unit testing, unit tests, integration testing, pytest, tdd, test-driven development]}
+  - {id: agile, name: Agile, category: practice, aliases: [agile, scrum, kanban]}
+  - {id: system_design, name: System design, category: practice, aliases: [system design, software architecture, data architecture, solution architecture]}
+  - {id: performance_tuning, name: Performance tuning, category: practice, aliases: [query optimization, performance tuning, query tuning, cost optimization]}
+  - {id: statistics, name: Statistics, category: practice, aliases: [statistics, statistical analysis, a/b testing, experimentation]}
