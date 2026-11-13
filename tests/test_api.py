@@ -66,3 +66,19 @@ def test_committed_openapi_matches_code() -> None:
     assert committed == openapi_yaml(), (
         "contract changed: run `uv run matcher openapi > openapi.yaml`"
     )
+
+
+def test_errors_are_documented_as_problem_json() -> None:
+    """Errors are sent as application/problem+json, so the contract must say so (the backend's
+    contract test validates real responses against it)."""
+    spec = create_app(Settings(token=TOKEN)).openapi()
+    assert "Problem" in spec["components"]["schemas"]
+    for path, ops in spec["paths"].items():
+        for method, op in ops.items():
+            for code, response in op["responses"].items():
+                if int(code) >= 400:
+                    content = response.get("content", {})
+                    assert list(content) == ["application/problem+json"], (path, method, code)
+                    assert content["application/problem+json"]["schema"]["$ref"].endswith(
+                        "/Problem"
+                    )
