@@ -7,6 +7,8 @@ and returns explainable, versioned match results. Stateless: no database.
 ```sh
 uv sync                                   # Python 3.14 (.python-version), locked deps
 uv run matcher fetch-model                # once: pinned embedding model into .models/ (64 MB)
+uv run matcher eval grade | skills        # build the eval set, one posting at a time
+uv run matcher eval run --profile eval/profile.yaml --out m.json && uv run matcher eval check m.json
 uv run ruff check && uv run ruff format --check   # CI
 uv run mypy src tests                     # CI, strict
 uv run pytest                             # CI
@@ -36,6 +38,9 @@ docker build -t jobradar-matcher:vX.Y.Z .
 - `src/matcher/embed.py` + `data/embedding_model.json`: the embedding model (BAAI/bge-small-en-v1.5
   via fastembed/ONNX), pinned by repo revision and per-file sha256; the image fetches it at
   build time into /opt/models, `.models/` locally (git-ignored); tests skip without it
+- `eval/`: the evaluation set and gate (see `eval/README.md`); `src/matcher/evaluate/`: metrics
+  (skill P/R, required accuracy, NDCG@10, P@10, false fails, latency, low confidence), the
+  gate, and the interactive grading sessions
 - `tests/fixtures/`: recorded real postings, and the fictional example profile
 - `openapi.yaml`: the contract, generated and committed; the backend pins a copy per tag
 - `tests/`: pytest, through `create_app` and `TestClient`
@@ -54,6 +59,8 @@ docker build -t jobradar-matcher:vX.Y.Z .
   is disabled in `Embedder`. Changing the model means a new manifest (repo, revision, hashes).
 - Weights and thresholds live in `defaults/scoring.yaml`, never in code: they will be part of
   each model version (ADR 0004). Change them only together with the eval baseline (ADR 0003).
+- Before a PR that changes matching: `matcher eval run` + `matcher eval check` (once the set
+  exists). Never tune on the eval grades as training data; retraining uses application labels.
 - Error bodies never echo request input (it may be personal data): field paths only.
 - Tests use `httpx` with Starlette's `TestClient`; its deprecation warning about `httpx2`
   is known and accepted. Don't switch to `httpx2` without asking.

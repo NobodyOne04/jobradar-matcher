@@ -1,0 +1,9 @@
+# How much worse than eval/baseline.json a metric may get before `matcher eval check` fails
+# (matcher ADR 0003). false_fails > 0 always fails. Metrics not listed are informational.
+ndcg_at_10: 0.02
+precision_at_10: 0.10
+skill_precision: 0.02
+skill_recall: 0.02
+required_accuracy: 0.03
+low_confidence_share: 0.05   # may rise this much
+latency_p95_ms: 50           # may rise this much (ms)

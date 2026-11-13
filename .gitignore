@@ -20,3 +20,6 @@ build/
 
 # local embedding model files (matcher fetch-model)
 /.models/
+
+# the profile the eval set was graded for: personal
+/eval/profile.yaml
