@@ -20,5 +20,7 @@
 - Service skeleton: FastAPI app with `/healthz`, `/readyz`, `/v1/version`, bearer auth, problem+json errors, JSON logs with request IDs, committed `openapi.yaml`, Dockerfile, CI
 
 ### Changed
+- Scoring defaults favour relevance: skills 0.40 and responsibilities 0.30 of the weight (were 0.35 and 0.15), duty matching from cosine 0.6 to 0.85 (was 0.5 to 0.8); eval baseline NDCG@10 0.10 → 0.18, P@10 0.10 → 0.20
+- Locations: Thailand, South Korea, Taiwan, Hong Kong; "Southeast Asia", "Asia", "Asia-Pacific" as regions
 - CI workflow disabled until the coding phases are done; checks run locally
 - ADR 0004 (model versions in MLflow) accepted
