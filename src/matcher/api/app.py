@@ -15,6 +15,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel, Field, ValidationError
 from starlette.exceptions import HTTPException
 
@@ -23,6 +24,7 @@ from matcher.config import Settings
 from matcher.embed import Embedder
 from matcher.embed import manifest as embedding_manifest
 from matcher.logs import log
+from matcher.metrics import MATCH_DURATION, REQUESTS
 from matcher.models import ModelStore, Unavailable, UnknownVersion
 from matcher.schemas import Job, Profile
 from matcher.score import MatchResult, score
@@ -186,6 +188,8 @@ def create_app(settings: Settings, store: ModelStore | None = None) -> FastAPI:
         try:
             response = await call_next(request)
             response.headers["X-Request-ID"] = request_id
+            route = request.scope.get("route")
+            REQUESTS.labels(getattr(route, "path", "unmatched"), str(response.status_code)).inc()
             log.info(
                 "request",
                 method=request.method,
@@ -206,6 +210,11 @@ def create_app(settings: Settings, store: ModelStore | None = None) -> FastAPI:
         # Field paths and messages only: the offending input may be personal data.
         errors = [{"loc": list(e["loc"]), "msg": e["msg"], "type": e["type"]} for e in exc.errors()]
         return problem(422, title="validation error", errors=errors)
+
+    @app.get("/metrics", include_in_schema=False)
+    async def metrics() -> Response:
+        # Not part of the /v1 contract; reachable only inside the compose network.
+        return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
     @app.get("/healthz", response_model=Status, tags=["health"])
     async def healthz() -> Status:
@@ -273,6 +282,7 @@ def create_app(settings: Settings, store: ModelStore | None = None) -> FastAPI:
                 continue
             r = score(body.profile, job, model.taxonomy, model.config, request.app.state.embedder)
             results.append(MatchItem(job_id=job.job_id, **r.model_dump()))
+        MATCH_DURATION.labels(body.model_version).observe(time.perf_counter() - start)
         log.info(
             "matched",
             model_version=body.model_version,

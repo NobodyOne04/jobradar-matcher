@@ -8,6 +8,7 @@ dependencies = [
     "fastapi>=0.162.5",
     "fastembed>=0.9.1",
     "mlflow-skinny==3.18.0",
+    "prometheus-client>=0.26.0",
     "pydantic>=2.14.3",
     "pyyaml>=6.0.3",
     "structlog>=26.1.0",

@@ -93,3 +93,32 @@ def test_models_listing(client: tuple[TestClient, FakeSource]) -> None:
     models = c.get("/v1/models", headers=AUTH).json()["models"]
     assert [(m["version"], m["loaded"]) for m in models] == [("1", True)]
     assert "embedding_model" in models[0]["manifest"]
+
+
+def test_metrics(client: tuple[TestClient, FakeSource]) -> None:
+    c, _ = client
+    c.post("/v1/match", json=body(), headers=AUTH)
+    c.get("/no/such/path/12345")
+    text = c.get("/metrics").text
+    assert 'matcher_requests_total{code="200",route="/v1/match"}' in text
+    assert 'matcher_requests_total{code="404",route="unmatched"}' in text
+    assert 'matcher_match_duration_seconds_count{model_version="1"}' in text
+    assert "12345" not in text  # raw paths never become labels
+
+
+def test_profile_content_never_logged(
+    client: tuple[TestClient, FakeSource], capsys: pytest.CaptureFixture[str]
+) -> None:
+    c, _ = client
+    c.post("/v1/match", json=body(), headers=AUTH)
+    c.post("/v1/match", json=body(jobs=[{"job_id": "x", "title": ""}]), headers=AUTH)
+    out = capsys.readouterr()
+    logs = out.out + out.err
+    assert '"matched"' in logs or "matched" in logs  # logging did happen
+    for secret in (
+        "Example Logistics",
+        "Designed and ran the batch platform",
+        "90000",
+        "Senior data engineer building",
+    ):
+        assert secret not in logs, f"profile content in logs: {secret}"
