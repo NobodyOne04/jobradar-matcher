@@ -119,7 +119,7 @@ def _heading(line: str) -> Section | None:
 _CLAUSE = re.compile(r"[,;:()\[\]{}|•·!?]|\s[-–—]\s|\.\s")
 
 
-def _match_skills(line: str, tax: Taxonomy) -> list[str]:
+def match_skills(line: str, tax: Taxonomy) -> list[str]:
     """Skill ids on one line, longest alias first, each token used once."""
     found: list[str] = []
     for clause in _CLAUSE.split(line):
@@ -156,7 +156,7 @@ def _skills(lines: list[str], tax: Taxonomy) -> list[FoundSkill]:
             if section == "preferred" or _INLINE_PREFERRED.search(line.casefold())
             else "required"
         )
-        for sid in _match_skills(line, tax):
+        for sid in match_skills(line, tax):
             prev = best.get(sid)
             if prev is None or (prev.requirement == "preferred" and requirement == "required"):
                 s = tax.skills[sid]

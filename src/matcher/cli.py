@@ -26,10 +26,26 @@ def main(argv: list[str] | None = None) -> int:
     ext = sub.add_parser("extract", help="extract skills and requirements from one job posting")
     ext.add_argument("job", type=Path, help='JSON file with "title" and "description_text"')
     ext.add_argument("--taxonomy", type=Path, default=Path("data/skills.yaml"))
+    sc = sub.add_parser("score", help="score one job against one profile")
+    sc.add_argument("--profile", type=Path, required=True, help="profile YAML or JSON (schema v1)")
+    sc.add_argument("--job", type=Path, required=True, help="normalized job JSON")
+    sc.add_argument("--taxonomy", type=Path, default=Path("data/skills.yaml"))
+    sc.add_argument("--config", type=Path, default=Path("defaults/scoring.yaml"))
     args = parser.parse_args(argv)
 
     if args.command == "openapi":
         sys.stdout.write(openapi_yaml())
+        return 0
+    if args.command == "score":
+        from matcher.schemas import Job, Profile
+        from matcher.score import score
+        from matcher.score.config import load as load_config
+        from matcher.taxonomy import load as load_taxonomy
+
+        profile = Profile.model_validate(yaml.safe_load(args.profile.read_text(encoding="utf-8")))
+        job = Job.model_validate_json(args.job.read_text(encoding="utf-8"))
+        match = score(profile, job, load_taxonomy(args.taxonomy), load_config(args.config))
+        print(match.model_dump_json(indent=2))
         return 0
     if args.command == "extract":
         from matcher.extract import extract
