@@ -74,8 +74,9 @@ docker build -t jobradar-matcher:vX.Y.Z .
   pyproject.toml; the backend then re-pins (`scripts/pin-matcher.sh`).
 - Weights and thresholds live in `defaults/scoring.yaml`, never in code: they will be part of
   each model version (ADR 0004). Change them only together with the eval baseline (ADR 0003).
-- Before a PR that changes matching: `matcher eval run` + `matcher eval check` (once the set
-  exists). Never tune on the eval grades as training data; retraining uses application labels.
+- Before a PR that changes matching: `matcher eval run` + `matcher eval check` (dataset
+  version 1 exists; its grades are a proxy, see `eval/README.md`). Never tune on the eval
+  grades as training data; retraining uses application labels.
 - Error bodies never echo request input (it may be personal data): field paths only.
 - Tests use `httpx` with Starlette's `TestClient`; its deprecation warning about `httpx2`
   is known and accepted. Don't switch to `httpx2` without asking.
