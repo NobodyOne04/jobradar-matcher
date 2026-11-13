@@ -17,3 +17,6 @@ build/
 
 .idea/
 .vscode/
+
+# local embedding model files (matcher fetch-model)
+/.models/

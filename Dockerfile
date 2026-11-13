@@ -7,12 +7,21 @@ COPY pyproject.toml uv.lock README.md .python-version ./
 RUN uv sync --locked --no-dev --no-install-project
 COPY src ./src
 RUN uv sync --locked --no-dev --no-editable
+# The pinned embedding model, fetched and checksum-verified once, here (matcher ADR 0001, 0002).
+COPY data/embedding_model.json data/
+RUN /app/.venv/bin/matcher fetch-model /opt/models/bge-small-en-v1.5
 
 # Runtime: just Python and the venv, as a non-root user.
 FROM python:3.14.10-slim
 RUN useradd --system --uid 10001 --no-create-home matcher
 COPY --from=build /app/.venv /app/.venv
-ENV PATH=/app/.venv/bin:$PATH PYTHONUNBUFFERED=1
+COPY --from=build /opt/models /opt/models
+COPY data /app/data
+COPY defaults /app/defaults
+WORKDIR /app
+# Nothing is downloaded at runtime: the model is in the image.
+ENV PATH=/app/.venv/bin:$PATH PYTHONUNBUFFERED=1 HF_HUB_OFFLINE=1 \
+    MATCHER_EMBEDDING_DIR=/opt/models/bge-small-en-v1.5
 USER matcher
 EXPOSE 8000
 CMD ["matcher", "serve"]

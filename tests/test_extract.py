@@ -134,3 +134,31 @@ def test_deterministic(tax: Taxonomy) -> None:
     assert all(
         extract(job["title"], job["description_text"], tax).model_dump_json() == a for _ in range(5)
     )
+
+
+def test_duties(tax: Taxonomy) -> None:
+    text = "\n".join(
+        [
+            "About us",
+            "We are a fast growing company building tools for logistics.",
+            "What you'll do",
+            "Design and operate our streaming data platform.",
+            "Python, Kafka",  # a tool list, not a duty
+            "Requirements",
+            "Five years building data pipelines in production.",
+        ]
+    )
+    assert extract("Data Engineer", text, tax).duties == [
+        "Design and operate our streaming data platform."
+    ]
+    # Without a responsibilities heading: sentence-like lines outside ignored sections.
+    no_heading = "\n".join(
+        [
+            "We build data pipelines for retail clients.",
+            "Benefits",
+            "Free lunch for the whole team daily.",
+        ]
+    )
+    assert extract("Data Engineer", no_heading, tax).duties == [
+        "We build data pipelines for retail clients."
+    ]

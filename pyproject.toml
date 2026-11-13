@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.14,<3.15"
 dependencies = [
     "fastapi>=0.162.5",
+    "fastembed>=0.9.1",
     "pydantic>=2.14.3",
     "pyyaml>=6.0.3",
     "structlog>=26.1.0",
@@ -36,6 +37,10 @@ ignore = ["S104"]  # binding 0.0.0.0 is intended inside the container
 [tool.mypy]
 strict = true
 plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["onnxruntime"]  # ships no type information
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

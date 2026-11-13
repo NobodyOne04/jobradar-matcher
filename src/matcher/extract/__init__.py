@@ -39,6 +39,7 @@ class Extraction(BaseModel):
     regions: list[str]
     utc_offsets: list[float]
     unrecognized: list[str]
+    duties: list[str]  # what the job involves: lines to compare with the candidate's experience
 
 
 # --- Sections ---------------------------------------------------------------------------
@@ -422,7 +423,27 @@ def extract(title: str, text: str, tax: Taxonomy) -> Extraction:
         regions=_regions(title + "\n" + text),
         utc_offsets=_offsets(title + "\n" + text),
         unrecognized=_unrecognized(kept, tax),
+        duties=_duties(lines),
     )
+
+
+def _duties(lines: list[str], limit: int = 40) -> list[str]:
+    """The lines under responsibility headings ("What you'll do"). A posting without such a
+    heading gives its sentence-like lines outside ignored and preferred sections instead."""
+    by_section: dict[Section | None, list[str]] = {}
+    section: Section | None = None
+    for line in lines:
+        heading = _heading(line)
+        if heading:
+            section = heading
+            continue
+        if len(line.split()) >= 5:  # a sentence, not a list of tool names
+            by_section.setdefault(section, []).append(" ".join(line.split()))
+    found = by_section.get("responsibilities") or [
+        *by_section.get(None, []),
+        *by_section.get("required", []),
+    ]
+    return found[:limit]
 
 
 def _kept_lines(lines: list[str]) -> list[str]:

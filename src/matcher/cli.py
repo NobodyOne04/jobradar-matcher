@@ -1,5 +1,6 @@
 """CLI: `matcher serve` runs the API; `matcher openapi` prints the contract (openapi.yaml);
-`matcher extract job.json` shows what extraction finds in one posting."""
+`matcher extract job.json` shows what extraction finds in one posting; `matcher score` scores
+one job against one profile; `matcher fetch-model DIR` downloads the pinned embedding model."""
 
 import argparse
 import json
@@ -31,12 +32,27 @@ def main(argv: list[str] | None = None) -> int:
     sc.add_argument("--job", type=Path, required=True, help="normalized job JSON")
     sc.add_argument("--taxonomy", type=Path, default=Path("data/skills.yaml"))
     sc.add_argument("--config", type=Path, default=Path("defaults/scoring.yaml"))
+    sc.add_argument(
+        "--model",
+        type=Path,
+        default=Path(".models/bge-small-en-v1.5"),
+        help="embedding model dir; responsibilities are unknown if it is missing",
+    )
+    fm = sub.add_parser("fetch-model", help="download the pinned embedding model and verify it")
+    fm.add_argument("dir", type=Path, nargs="?", default=Path(".models/bge-small-en-v1.5"))
     args = parser.parse_args(argv)
 
     if args.command == "openapi":
         sys.stdout.write(openapi_yaml())
         return 0
+    if args.command == "fetch-model":
+        from matcher.embed import fetch, manifest
+
+        fetch(args.dir, manifest())
+        print(f"embedding model verified in {args.dir}")
+        return 0
     if args.command == "score":
+        from matcher.embed import Embedder, manifest
         from matcher.schemas import Job, Profile
         from matcher.score import score
         from matcher.score.config import load as load_config
@@ -44,7 +60,10 @@ def main(argv: list[str] | None = None) -> int:
 
         profile = Profile.model_validate(yaml.safe_load(args.profile.read_text(encoding="utf-8")))
         job = Job.model_validate_json(args.job.read_text(encoding="utf-8"))
-        match = score(profile, job, load_taxonomy(args.taxonomy), load_config(args.config))
+        embedder = Embedder(args.model, manifest()) if args.model.is_dir() else None
+        match = score(
+            profile, job, load_taxonomy(args.taxonomy), load_config(args.config), embedder
+        )
         print(match.model_dump_json(indent=2))
         return 0
     if args.command == "extract":
