@@ -3,6 +3,8 @@
 ## Unreleased
 
 ### Added
+- Eligibility for profile v2 (ADR 0006): required languages with CEFR levels, the posting's language as a hint, visa sponsorship and right-to-work statements; remote jobs reachable through your remote regions, on-site jobs through relocation (10 points below remote), `languages` and `work_authorization` gates (0.5.0)
+- `matcher eval grade --jobs FILE` re-grades listed jobs, replacing their grades
 - Profile schema version 2 (jobradar ADR 0015): target roles, languages, remote regions, relocation, and the `languages` / `work_authorization` hard constraints (unknown until ADR 0006 evaluates them); v1 profiles unchanged (0.4.0)
 - ADR 0006 (Accepted): eligibility from languages, relocation, remote regions and visa sponsorship
 - ADR 0007 (Accepted): role fit from a pretrained cross-encoder reranker

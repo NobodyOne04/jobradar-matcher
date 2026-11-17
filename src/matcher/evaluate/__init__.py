@@ -52,6 +52,13 @@ def read_jsonl[T: BaseModel](path: Path, model: type[T]) -> list[T]:
     return rows
 
 
+def write_jsonl(path: Path, rows: list[BaseModel]) -> None:
+    """Replace the file whole, through a temporary file, so an interrupted write loses nothing."""
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text("".join(r.model_dump_json() + "\n" for r in rows), encoding="utf-8")
+    tmp.replace(path)
+
+
 def append_jsonl(path: Path, row: BaseModel) -> None:
     with path.open("a", encoding="utf-8") as f:
         f.write(row.model_dump_json() + "\n")

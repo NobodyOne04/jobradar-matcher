@@ -30,6 +30,13 @@ compensation:
   eur_per_unit: {EUR: 1.0, USD: 0.92, GBP: 1.17, CHF: 1.05, CAD: 0.66, AUD: 0.6, PLN: 0.23, SEK: 0.087, NOK: 0.085, DKK: 0.134}
   per_year: {year: 1, month: 12, day: 220, hour: 1760}
 
+eligibility:                # profile v2 (ADR 0006): who can take the job; values of the location dimension
+  remote_reachable: 1.0     # remote and open to your remote_regions, or in a country you work from
+  relocation_sponsored: 0.8 # on-site or region-locked, in your relocation regions, sponsorship/relocation help offered
+  relocation: 0.6           # the same, sponsorship not mentioned
+  posting_language_unspoken: 0.5  # written in a language you don't list (no stated requirement); never fails a gate
+  relocation_penalty: 10    # points off when you can only take the job by moving: remote first at equal fit
+
 bands:                      # score cut-offs; a failed hard constraint is band "excluded"
   strong: 75
   good: 55

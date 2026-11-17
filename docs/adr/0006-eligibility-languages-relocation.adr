@@ -54,6 +54,32 @@ Thailand, speak English (B2-C1) and Russian (native), and need visa sponsorship 
 - The eval gate: no new false fails among jobs graded 2-3; NDCG@10 must not drop.
 - After promotion the backend re-scores all open jobs; expect many more eligible jobs.
 
+**Amendment (2026-11-17, approved in session).** A job you can only take by relocating
+scores `eligibility.relocation_penalty` (10) points less, so at equal fit remote jobs open to
+you rank first. With location at 10% of the weight, the 0.6/0.8 values alone did not separate
+them: the first eval run ranked a UK and a US relocation job into the top 10.
+
+**Implementation notes (2026-11-17).**
+- The dimension keeps its name `location` (model versions name their weights by dimension;
+  v5's bundle would not load otherwise); its values follow the table above. Defaults for the
+  new `eligibility` config section apply to bundles without it.
+- For a v2 profile with `remote_regions` or `relocation`, the `locations` gate means "can you
+  take the job" (the order above); v1 profiles keep the v1 path unchanged.
+- `worldwide` in `remote_regions` admits jobs open worldwide, not every job: a remote job is
+  reachable if it admits one of your specific regions (APAC, TH), or is open worldwide;
+  "remote, US only" is reached only by relocation.
+- Language requirements are judged per sentence and clause: "Fluent in English, other
+  European languages a plus" requires English; "required" in the clause beats a "nice to
+  have" heading; two or more languages joined by "or" are a choice (none required).
+- Sponsorship is read from all lines (relocation packages sit under benefits); a refusal
+  wins over an offer.
+- Eval (dataset v1, 250 jobs): with the v1 eval profile, metrics equal the baseline; with a
+  v2 eval profile (relocation anywhere, remote worldwide/APAC/TH, English C1, Russian
+  native), NDCG@10 0.6725, P@10 0.60, 0 false fails. 136 graded jobs became eligible and 8
+  were newly excluded, all for languages (French, German, Thai, Japanese, Mandarin). The v1
+  grades were a proxy written for the old preferences; your re-grades go in dataset v2
+  (`matcher eval grade --jobs FILE`).
+
 ## Technologies and alternatives
 - Involved: regexes and the existing `geo.py` regions; no new dependency.
 - Alternatives:

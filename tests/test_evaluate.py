@@ -135,6 +135,17 @@ def test_grade_session_saves_each_answer_and_resumes(eval_dir: Path) -> None:
     assert "=== 2/3 ===" in shown[0]  # resumed after the graded one
 
 
+def test_regrade_replaces_grades_in_place(eval_dir: Path) -> None:
+    _, ask, show = scripted(["2", "s", "0"])  # real 2, onsite skipped, dentist 0
+    grade_session(eval_dir, ask, show)  # type: ignore[arg-type]
+    _, ask, show = scripted(["3"])
+    assert grade_session(eval_dir, ask, show, only=["dentist"]) == 1  # type: ignore[arg-type]
+    grades = read_jsonl(eval_dir / "grades.jsonl", Grade)
+    assert [(g.job_id, g.grade) for g in grades] == [("real", 2), ("dentist", 3)]  # one line each
+    with pytest.raises(ValueError, match=r"not in jobs\.jsonl"):
+        grade_session(eval_dir, ask, show, only=["nope"])  # type: ignore[arg-type]
+
+
 def test_skills_session_records_corrections(eval_dir: Path, tax: Taxonomy) -> None:
     # real: accept as shown; onsite: drop dbt, add kafka as preferred, make sql preferred.
     shown, ask, show = scripted(["", "-dbt +kafka? ~sql +nope", "", "q"])

@@ -32,7 +32,9 @@ docker build -t jobradar-matcher:vX.Y.Z .
   `src/matcher/taxonomy/`: loads and validates it; `src/matcher/tokens.py`: the one tokenizer
   for both job text and aliases
 - `src/matcher/extract/`: deterministic extraction (skills with required/preferred from
-  sections, years, title level, salary text, regions, UTC offsets, unrecognized terms)
+  sections, years, title level, salary text, regions, UTC offsets, unrecognized terms); `eligibility.py`:
+  required languages (CEFR, per clause; "or" lists are a choice), the posting's language
+  (stopwords), visa sponsorship / right-to-work statements (ADR 0006)
 - `src/matcher/schemas/`: `Profile` (schema v1 or v2, mirrors jobradar
   `docs/api/profile.schema.json` and `profile.schema.v2.json`; a v1 profile may not carry v2
   fields) and `Job` (the backend's normalized job), both strict
@@ -64,6 +66,9 @@ docker build -t jobradar-matcher:vX.Y.Z .
 - Extraction is pure and deterministic: no clock, no randomness, sorted output. A new alias
   must not be a common English word ("rest", "rails", "yarn" were removed for that); short
   ambiguous names go in `cased`. Grow the taxonomy from `unrecognized` on real postings.
+- Eligibility (ADR 0006) applies to v2 profiles with `remote_regions`/`relocation`; v1 profiles
+  must keep scoring exactly as before (the v1 eval run equals the baseline). The dimension
+  stays named `location`: model bundles name weights by dimension.
 - Unknown is never a mismatch: a dimension without data is left out (lower completeness),
   a hard constraint without data is `unknown`, never `fail`. Score, band, confidence and
   completeness stay separate fields.

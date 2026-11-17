@@ -14,7 +14,8 @@ from pydantic import BaseModel
 
 from matcher.embed import Embedder
 from matcher.extract import Extraction, extract, match_skills
-from matcher.schemas import Job, Profile
+from matcher.extract.eligibility import CEFR_ORDER, LANGUAGES
+from matcher.schemas import Job, Preferences, Profile
 from matcher.score import geo
 from matcher.score.config import ScoringConfig
 from matcher.taxonomy import Taxonomy
@@ -65,6 +66,7 @@ class MatchResult(BaseModel):
 class _Dim:
     score: float | None
     evidence: list[str] = field(default_factory=list)
+    by_move: bool = False  # reachable only by relocating (ADR 0006): costs relocation_penalty
 
 
 # --- Candidate skills -----------------------------------------------------------------------
@@ -216,13 +218,16 @@ def _remote_policy(job: Job) -> str:
     return "unknown"
 
 
-def _location(job: Job, ex: Extraction, profile: Profile) -> tuple[_Dim, dict[str, _Dim]]:
-    """Remote, country and timezone fit; each also feeds its hard constraint."""
+def _location(
+    job: Job, ex: Extraction, profile: Profile, cfg: ScoringConfig
+) -> tuple[_Dim, dict[str, _Dim]]:
+    """Remote, country, time zone and (profile v2, ADR 0006) relocation, work authorization and
+    language fit; each also feeds its hard constraint. v1 profiles take the v1 path unchanged."""
     prefs = profile.preferences
     subs: dict[str, _Dim] = {}
+    policy = _remote_policy(job)
 
     if prefs.remote_only:
-        policy = _remote_policy(job)
         subs["remote_only"] = (
             _Dim(1.0, ["remote"])
             if policy == "remote"
@@ -231,20 +236,30 @@ def _location(job: Job, ex: Extraction, profile: Profile) -> tuple[_Dim, dict[st
             else _Dim(0.0, [f"{policy}, not remote"])
         )
 
-    if prefs.locations:
+    # The posting's own location fields win; regions named in the text only count when those
+    # name nothing ("Germany (Remote)" plus "APAC customers" is Germany only).
+    listed = frozenset(c for c in job.countries if c in geo.COUNTRIES) | geo.mentioned(
+        job.location_text
+    )
+    allowed = listed or frozenset().union(*(geo.region_countries(r) for r in ex.regions))
+
+    if prefs.remote_regions or prefs.relocation is not None:
+        # v2: the "locations" gate asks whether you can take the job at all (ADR 0006).
+        reach, by_move = _reach(policy, allowed, ex, prefs, cfg)
+        reach.by_move = by_move
+        subs["locations"] = reach
+        subs["work_authorization"] = _work_authorization(reach, by_move, ex, prefs)
+    elif prefs.locations:
         yours = frozenset().union(*(geo.covers(p) for p in prefs.locations))
-        # The posting's own location fields win; regions named in the text only count when
-        # those name nothing ("Germany (Remote)" plus "APAC customers" is Germany only).
-        listed = frozenset(c for c in job.countries if c in geo.COUNTRIES) | geo.mentioned(
-            job.location_text
-        )
-        allowed = listed or frozenset().union(*(geo.region_countries(r) for r in ex.regions))
         if not yours or not allowed:
             subs["locations"] = _Dim(None, ["no known location to compare"])
         elif yours & allowed:
             subs["locations"] = _Dim(1.0, ["open to your locations"])
         else:
             subs["locations"] = _Dim(0.0, [f"limited to {_names(allowed)}"])
+
+    if profile.languages:
+        subs["languages"] = _languages(ex, profile, cfg)
 
     if prefs.timezones:
         lo, hi = prefs.timezones.min_utc_offset, prefs.timezones.max_utc_offset
@@ -261,6 +276,96 @@ def _location(job: Job, ex: Extraction, profile: Profile) -> tuple[_Dim, dict[st
     if not known:
         return _Dim(None, evidence or ["no location preference in your profile"]), subs
     return _Dim(sum(d.score or 0 for d in known) / len(known), evidence), subs
+
+
+def _covers(places: list[str]) -> frozenset[str]:
+    return frozenset().union(*(geo.covers(p) for p in places)) if places else frozenset()
+
+
+_WORLDWIDE = geo.covers("worldwide")
+
+
+def _remote_open_to_you(allowed: frozenset[str], remote_regions: list[str]) -> bool:
+    """A remote job is open to you if it admits one of your regions ("APAC", "TH"); "worldwide"
+    in your list admits jobs open worldwide, not every job: "remote, US only" is still US only."""
+    worldwide = [r for r in remote_regions if geo.covers(r) == _WORLDWIDE]
+    specific = _covers([r for r in remote_regions if r not in worldwide])
+    return bool(allowed & specific) or (bool(worldwide) and len(allowed) >= 0.9 * len(_WORLDWIDE))
+
+
+def _reach(
+    policy: str, allowed: frozenset[str], ex: Extraction, prefs: Preferences, cfg: ScoringConfig
+) -> tuple[_Dim, bool]:
+    """Whether you can take the job, and whether only by moving (ADR 0006): a country you work
+    from today; else remote and open to your remote regions; else in your relocation regions."""
+    elig = cfg.eligibility
+    if not allowed:
+        if policy == "remote":
+            return _Dim(elig.remote_reachable, ["remote, no region restriction stated"]), False
+        return _Dim(None, ["no known location to compare"]), False
+    if allowed & _covers(prefs.locations):
+        return _Dim(elig.remote_reachable, ["open to your locations"]), False
+    if policy == "remote" and _remote_open_to_you(allowed, prefs.remote_regions):
+        return _Dim(elig.remote_reachable, [f"remote, open to {_names(allowed)}"]), False
+    reloc = prefs.relocation
+    target = (
+        allowed & _covers(reloc.regions) if reloc is not None and reloc.willing else frozenset()
+    )
+    if target:
+        where = f"{policy if policy != 'unknown' else 'based'} in {_names(target)}"
+        if ex.sponsorship is not None and ex.sponsorship.stance == "offered":
+            return _Dim(
+                elig.relocation_sponsored, [f"{where}: relocation, sponsorship or help offered"]
+            ), True
+        return _Dim(elig.relocation, [f"{where}: relocation"]), True
+    return _Dim(0.0, [f"limited to {_names(allowed)}"]), False
+
+
+def _work_authorization(reach: _Dim, by_move: bool, ex: Extraction, prefs: Preferences) -> _Dim:
+    """A move needs the right to work there: a posting that rules out sponsorship fails if you
+    need it. No move, nothing to authorize; unknown reach or silence stays unknown."""
+    if reach.score is None:
+        return _Dim(None, ["no known location to compare"])
+    if not by_move:
+        return _Dim(1.0, ["no move needed"])
+    stance = ex.sponsorship
+    needs = prefs.relocation is not None and bool(prefs.relocation.needs_visa_sponsorship)
+    if stance is not None and stance.stance == "ruled_out" and needs:
+        return _Dim(0.0, [f"no visa sponsorship: '{_cut(stance.evidence)}'"])
+    if stance is not None and stance.stance == "offered":
+        return _Dim(1.0, [f"sponsorship or relocation help: '{_cut(stance.evidence)}'"])
+    return _Dim(None, ["visa sponsorship not mentioned"])
+
+
+_LANGUAGE_NAMES = {code: name.capitalize() for name, code in reversed(list(LANGUAGES.items()))}
+
+
+def _rank(level: str | None) -> int:
+    return CEFR_ORDER.index(level) if level in CEFR_ORDER else -1
+
+
+def _languages(ex: Extraction, profile: Profile, cfg: ScoringConfig) -> _Dim:
+    """Required languages against yours (CEFR); without a stated requirement, the language the
+    posting is written in is a weaker hint that never fails a gate."""
+    yours = {lang.language: lang.level for lang in profile.languages}
+    required = [r for r in ex.languages if r.requirement == "required"]
+    if required:
+        lacking = [r for r in required if _rank(yours.get(r.language)) < _rank(r.level)]
+        if lacking:
+            r = lacking[0]
+            name = _LANGUAGE_NAMES.get(r.language, r.language)
+            return _Dim(0.0, [f"requires {name} {r.level} (you: {yours.get(r.language, 'none')})"])
+        names = ", ".join(_LANGUAGE_NAMES.get(r.language, r.language) for r in required)
+        return _Dim(1.0, [f"{names}: at your level"])
+    if ex.posting_language:
+        name = _LANGUAGE_NAMES.get(ex.posting_language, ex.posting_language)
+        if _rank(yours.get(ex.posting_language)) >= _rank("B2"):
+            return _Dim(1.0, [f"posting in {name}"])
+        return _Dim(
+            cfg.eligibility.posting_language_unspoken,
+            [f"posting is in {name}, which you don't list"],
+        )
+    return _Dim(None, ["no language requirement stated"])
 
 
 def _names(codes: frozenset[str], limit: int = 4) -> str:
@@ -301,7 +406,7 @@ def score(
     """Without an embedder the responsibilities dimension is unknown (lower completeness)."""
     ex = extract(job.title, job.description_text, tax)
     skills_dim, skills = _skills(ex, candidate_skills(profile, tax), tax, cfg)
-    location_dim, location_subs = _location(job, ex, profile)
+    location_dim, location_subs = _location(job, ex, profile, cfg)
     dims: dict[str, _Dim] = {
         "skills": skills_dim,
         "responsibilities": _responsibilities(ex, profile, cfg, embedder),
@@ -329,6 +434,8 @@ def score(
     known = {n: w for n, w in weights.items() if dims[n].score is not None}
     total_w, known_w = sum(weights.values()), sum(known.values())
     raw = sum(w * (dims[n].score or 0) for n, w in known.items()) / known_w if known_w else 0.0
+    if location_subs.get("locations") is not None and location_subs["locations"].by_move:
+        raw = max(0.0, raw - cfg.eligibility.relocation_penalty / 100)
     value = int(5 * round(raw * 100 / 5))
     completeness = round(known_w / total_w, 2) if total_w else 0.0
 
