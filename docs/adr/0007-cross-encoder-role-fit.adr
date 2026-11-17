@@ -1,6 +1,6 @@
 # 0007. Role fit: a pretrained cross-encoder reranker as the main relevance signal
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-11-17
 - Amends: [0002](0002-hybrid-matching.adr) (the responsibilities dimension is replaced)
 - Depends on: [0006](0006-eligibility-languages-relocation.adr) (implemented first, so each gain is measured alone)
