@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: jobradar-matcher
-  version: 0.3.2
+  version: 0.4.0
 paths:
   /healthz:
     get:
@@ -250,6 +250,29 @@ components:
       title: JobError
       description: One job that could not be scored; the others in the batch still
         are.
+    Language:
+      properties:
+        language:
+          type: string
+          pattern: ^[a-z]{2}$
+          title: Language
+        level:
+          type: string
+          enum:
+          - A1
+          - A2
+          - B1
+          - B2
+          - C1
+          - C2
+          - native
+          title: Level
+      additionalProperties: false
+      type: object
+      required:
+      - language
+      - level
+      title: Language
     MatchItem:
       properties:
         score:
@@ -395,6 +418,17 @@ components:
           maxItems: 200
           title: Locations
           default: []
+        remote_regions:
+          items:
+            type: string
+          type: array
+          maxItems: 50
+          title: Remote Regions
+          default: []
+        relocation:
+          anyOf:
+          - $ref: '#/components/schemas/Relocation'
+          - type: 'null'
         timezones:
           anyOf:
           - $ref: '#/components/schemas/Timezones'
@@ -412,6 +446,8 @@ components:
             - locations
             - timezones
             - salary
+            - languages
+            - work_authorization
           type: array
           title: Hard Constraints
           default: []
@@ -422,13 +458,29 @@ components:
       properties:
         schema_version:
           type: integer
-          const: 1
+          enum:
+          - 1
+          - 2
           title: Schema Version
         headline:
           anyOf:
           - type: string
           - type: 'null'
           title: Headline
+        target_roles:
+          items:
+            type: string
+          type: array
+          maxItems: 10
+          title: Target Roles
+          default: []
+        languages:
+          items:
+            $ref: '#/components/schemas/Language'
+          type: array
+          maxItems: 20
+          title: Languages
+          default: []
         seniority:
           type: string
           enum:
@@ -475,7 +527,8 @@ components:
       - skills
       - preferences
       title: Profile
-      description: Candidate profile, schema_version 1.
+      description: Candidate profile, schema_version 1 or 2 (v2 adds the fields marked
+        below).
     ProfileSkill:
       properties:
         name:
@@ -505,6 +558,28 @@ components:
       required:
       - name
       title: ProfileSkill
+    Relocation:
+      properties:
+        willing:
+          type: boolean
+          title: Willing
+        regions:
+          items:
+            type: string
+          type: array
+          maxItems: 50
+          title: Regions
+          default: []
+        needs_visa_sponsorship:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Needs Visa Sponsorship
+      additionalProperties: false
+      type: object
+      required:
+      - willing
+      title: Relocation
     Salary:
       properties:
         min:

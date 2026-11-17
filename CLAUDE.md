@@ -33,8 +33,9 @@ docker build -t jobradar-matcher:vX.Y.Z .
   for both job text and aliases
 - `src/matcher/extract/`: deterministic extraction (skills with required/preferred from
   sections, years, title level, salary text, regions, UTC offsets, unrecognized terms)
-- `src/matcher/schemas/`: `Profile` (schema v1, mirrors jobradar `docs/api/profile.schema.json`)
-  and `Job` (the backend's normalized job), both strict
+- `src/matcher/schemas/`: `Profile` (schema v1 or v2, mirrors jobradar
+  `docs/api/profile.schema.json` and `profile.schema.v2.json`; a v1 profile may not carry v2
+  fields) and `Job` (the backend's normalized job), both strict
 - `src/matcher/score/`: dimensions, hard-constraint gates, banded score, confidence,
   explanations; `config.py` + `defaults/scoring.yaml` (weights, cut-offs, fixed FX rates);
   `geo.py`: which countries a location phrase covers
