@@ -88,24 +88,24 @@ _PATTERNS = [
     # "fluent German", "native-level English", "fluency in Dutch and English"
     re.compile(
         _LEVEL_WORD
-        + r"\s+(?:in\s+|level\s+)?(?:both\s+)?"
+        + r" (?:in |level )?(?:both )?"
         + _LANG
-        + r"(?:\s*(?:and|&|/|,)\s*"
+        + r"(?: ?(?:and|&|/|,) ?"
         + _LANG
         + r")?",
         re.IGNORECASE,
     ),
     # "German (C1)", "English: B2", "English proficiency: C1", "German C1 level"
     re.compile(
-        _LANG + r"\s*(?:language\s*)?(?:skills|proficiency|level)?\s*[:(\-–]?\s*" + _CEFR,
+        _LANG + r"(?: language)?(?: (?:skills|proficiency|level))?(?: ?[:(\-–])? ?" + _CEFR,
         re.IGNORECASE,
     ),
     # "German is required", "English required", "Japanese language skills are a must"
-    re.compile(_LANG + r"(?:\s+language)?(?:\s+skills)?\s+" + _REQUIRED_WORD, re.IGNORECASE),
+    re.compile(_LANG + r"(?: language)?(?: skills)? " + _REQUIRED_WORD, re.IGNORECASE),
     # "German speaking", "German-speaking"
-    re.compile(_LANG + r"[\s-]speaking\b", re.IGNORECASE),
+    re.compile(_LANG + r"[ -]speaking\b", re.IGNORECASE),
     # "C1-level English", "B2 English"
-    re.compile(_CEFR + r"[\s-]*(?:level\s+)?" + _LANG, re.IGNORECASE),
+    re.compile(_CEFR + r"[ -]?(?:level )?" + _LANG, re.IGNORECASE),
 ]
 _REQUIRED_IN_CLAUSE = re.compile(
     r"\brequired\b|\bmust\b|\bmandatory\b|\bessential\b|\bnecessary\b", re.IGNORECASE
@@ -143,6 +143,15 @@ def _cefr(code: str) -> Level:
     return "B2"
 
 
+MAX_LINE = 2000  # longer "lines" are pasted blobs, not requirement lines
+
+
+def _norm(line: str) -> str:
+    """Single spaces and a length cap before any pattern runs: the patterns use single literal
+    spaces, never adjacent optional whitespace, so matching stays linear on hostile input."""
+    return " ".join(line.split())[:MAX_LINE]
+
+
 def _matches(sentence: str) -> list[tuple[int, str, Level]]:
     """(position, ISO code, level) of every language mention with a level or requirement."""
     out: list[tuple[int, str, Level]] = []
@@ -176,7 +185,8 @@ def languages_required(lines: list[tuple[str, bool]]) -> list[LanguageRequiremen
     joined by "or" ("Thai, Vietnamese, or other ASEAN languages") are a choice, so none of them
     is required."""
     best: dict[str, LanguageRequirement] = {}
-    for line, preferred_section in lines:
+    for raw, preferred_section in lines:
+        line = _norm(raw)
         for sentence in _SENTENCE.split(line):
             found = _matches(sentence)
             if not found:
@@ -247,9 +257,9 @@ def posting_language(text: str) -> str | None:
 
 _SPONSOR_RULED_OUT = re.compile(
     r"\b(?:no|not|cannot|can't|can ?not|unable to|do not|don't|does not|doesn't|will not|won't|"
-    r"are not able to|is not able to)\s+(?:currently\s+)?(?:able to\s+)?"
-    r"(?:provide|offer|support|sponsor|consider)?\s*(?:any\s+)?(?:visa|work permit|employment)?"
-    r"\s*sponsor(?:ship)?\b|"
+    r"are not able to|is not able to) (?:currently )?(?:able to )?"
+    r"(?:(?:provide|offer|support|sponsor|consider) )?(?:any )?"
+    r"(?:(?:visa|work permit|employment) )?sponsor(?:ship)?\b|"
     r"\bwithout (?:the need for )?(?:current or future )?(?:visa |employer )?sponsorship\b|"
     r"\bsponsorship (?:is |will )?(?:not|n't) (?:be )?(?:available|provided|offered|possible)\b|"
     r"\bmust (?:already )?(?:have|hold|possess) (?:the |a )?(?:full |valid |existing )?"
@@ -259,7 +269,7 @@ _SPONSOR_RULED_OUT = re.compile(
 )
 _SPONSOR_OFFERED = re.compile(
     r"\bvisa sponsorship (?:is )?(?:available|provided|offered|possible)\b|"
-    r"\b(?:we|will|can|happy to)\s+(?:offer|provide|support|sponsor)(?: full)?"
+    r"\b(?:we|will|can|happy to) (?:offer|provide|support|sponsor)(?: full)?"
     r" (?:visa )?(?:sponsorship|your visa|visas|work permits?)\b|"
     r"\b(?:sponsor|sponsoring) (?:your |a |work )?(?:visa|work permit)s?\b|"
     r"\brelocation (?:package|support|assistance|bonus|allowance)\b|"
@@ -280,7 +290,7 @@ def sponsorship(lines: list[str]) -> SponsorshipStatement | None:
     """What the posting says about sponsoring a move; a refusal wins over an offer ("we do not
     sponsor visas, but help with relocation" cannot hire you if you need a visa)."""
     offered: str | None = None
-    for line in lines:
+    for line in map(_norm, lines):
         if _SPONSOR_RULED_OUT.search(line):
             return SponsorshipStatement(stance="ruled_out", evidence=_short(line))
         if offered is None and _SPONSOR_OFFERED.search(line):
