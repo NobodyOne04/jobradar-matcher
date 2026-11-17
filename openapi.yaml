@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: jobradar-matcher
-  version: 0.5.0
+  version: 0.5.1
 paths:
   /healthz:
     get:

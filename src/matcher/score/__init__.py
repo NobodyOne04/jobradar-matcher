@@ -282,15 +282,11 @@ def _covers(places: list[str]) -> frozenset[str]:
     return frozenset().union(*(geo.covers(p) for p in places)) if places else frozenset()
 
 
-_WORLDWIDE = geo.covers("worldwide")
-
-
 def _remote_open_to_you(allowed: frozenset[str], remote_regions: list[str]) -> bool:
-    """A remote job is open to you if it admits one of your regions ("APAC", "TH"); "worldwide"
-    in your list admits jobs open worldwide, not every job: "remote, US only" is still US only."""
-    worldwide = [r for r in remote_regions if geo.covers(r) == _WORLDWIDE]
-    specific = _covers([r for r in remote_regions if r not in worldwide])
-    return bool(allowed & specific) or (bool(worldwide) and len(allowed) >= 0.9 * len(_WORLDWIDE))
+    """A remote job is open to you if it admits one of your regions as a whole: worldwide, all
+    of APAC, or a country you named (TH). "Remote, Japan" admits only people in Japan, so it is
+    not open to "APAC": you would have to move there (relocation)."""
+    return any(region and region <= allowed for region in map(geo.covers, remote_regions))
 
 
 def _reach(
