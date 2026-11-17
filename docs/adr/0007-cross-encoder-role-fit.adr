@@ -1,0 +1,82 @@
+# 0007. Role fit: a pretrained cross-encoder reranker as the main relevance signal
+
+- Status: Proposed
+- Date: 2026-11-17
+- Amends: [0002](0002-hybrid-matching.adr) (the responsibilities dimension is replaced)
+- Depends on: [0006](0006-eligibility-languages-relocation.adr) (implemented first, so each gain is measured alone)
+
+A pretrained cross-encoder reads your profile and each job together and scores how well the
+role fits. It becomes the "role fit" dimension, weighted 50%, replacing the bi-encoder
+"responsibilities" dimension. No training: the model is used as published, converted with
+PyTorch to ONNX, and served by ONNX Runtime like the embedding model.
+
+## Technical details
+
+**Problem.** On the 250 graded jobs, NDCG@10 is 0.6725 and precision@10 0.60. The main error
+is role fit: skill overlap (Python, SQL, AWS) and sentence similarity rank software, analyst
+and PM roles as good data-engineering matches. There are 13 positive grades and 16
+applications, too few to train a model; the eval grades must never be training data.
+
+**Input pair.**
+- Query (yours, built from profile v2, jobradar ADR 0015): `target_roles`, `headline`,
+  seniority, the last two titles and the top 10 skills, e.g. "Senior Data Engineer. Wants:
+  Data Engineer, Analytics Engineer. Recent: Data Engineer at X. Skills: Spark, Kafka, ...".
+  A v1 profile without `target_roles` uses headline and titles.
+- Document (the job's): title and company, then the requirement and responsibility sections
+  the extractor already finds; the rest of the description only when there are none.
+- Long postings are cut into chunks that fit the model (512 tokens), and the best chunk's
+  score counts; that chunk is the evidence.
+
+**Scoring.**
+- Runs only for jobs whose hard constraints did not fail: excluded jobs are not scored by
+  the model (about 90% failed location before ADR 0006; fewer after it).
+- Raw logits map to 0..1 by a fixed piecewise-linear calibration from percentiles of the
+  model's scores over ~2,000 ungraded jobs, computed at `train` time and stored in the
+  bundle (`scoring.yaml`). The eval grades are never used to fit it.
+- Weights (`defaults/scoring.yaml`): role_fit 0.50, skills 0.25, seniority 0.10,
+  location 0.10, compensation 0.03, employment_type 0.02; `responsibilities` is removed.
+- Explanation: "Role fit 82%: 'you will own our Spark and Kafka pipelines...'" (the best
+  chunk, cut to 160 characters), plus the existing skill and seniority explanations.
+
+**Model choice: a bake-off.** Candidates, each pinned by repository revision and per-file
+sha256 in `data/reranker_model.json`:
+
+| Model | Parameters | Note |
+|---|---|---|
+| `cross-encoder/ms-marco-MiniLM-L-6-v2` | 22M | fastest, English |
+| `BAAI/bge-reranker-base` | 278M | stronger, English/Chinese |
+| `BAAI/bge-reranker-v2-m3` | 568M | multilingual (German, French postings) |
+
+Each is converted with PyTorch (`torch.onnx.export`, then int8 dynamic quantization with
+`onnxruntime.quantization`) by `matcher export-reranker`, a dev-only command; the bake-off
+report (metrics and latency per model) goes in the PR. The best model that meets the bar
+below ships; if none does, nothing ships and the report says so.
+
+**Acceptance bar** (eval dataset v1, `matcher eval check`):
+- NDCG@10 >= 0.75 and precision@10 >= 0.70 (today 0.6725 and 0.60);
+- no new false fails (gates unchanged);
+- p95 latency per job <= 2 s on the Mac (today 1.7 s).
+
+**Packaging and determinism.**
+- PyTorch is a dev dependency only (`uv` dependency group `export`); the image ships the
+  `.onnx` file and `onnxruntime`, as for the embedder: nothing is fetched at runtime, and
+  inference is deterministic (fixed threads, no sampling).
+- The model files belong to the matcher release (ADR 0004 axis 1), baked into the image; the
+  weights and calibration belong to the model version (axis 2) in MLflow.
+- Promotion makes the backend re-score all open jobs (jobradar ADR 0010); rollback is
+  `matcher promote 5 --force`.
+
+**Baseline:** the acceptance bar is measured against the model version that implements
+ADR 0006 (eligibility), not today's v5, so the reranker's own gain is visible.
+
+**Out of scope:** fine-tuning on your applications (a learned layer on top, later), and
+translating non-English postings.
+
+## Technologies and alternatives
+- Involved: PyTorch and `transformers` (export only), ONNX Runtime (already used),
+  `onnxruntime.quantization`, MLflow (ADR 0004).
+- Alternatives:
+  - Fine-tuning the bi-encoder: needs hundreds of labelled pairs; there are 16.
+  - A learned ranker over today's features: same data problem; planned later on top of this.
+  - An LLM: excluded (SPEC §13).
+  - Serving PyTorch: about 700 MB more image and slower CPU inference than quantized ONNX.

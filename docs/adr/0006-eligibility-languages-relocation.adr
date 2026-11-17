@@ -1,0 +1,65 @@
+# 0006. Eligibility: languages, relocation, remote regions and visa sponsorship
+
+- Status: Proposed
+- Date: 2026-11-17
+- Amends: [0002](0002-hybrid-matching.adr) (the location dimension and gates)
+
+The matcher decides whether you can take a job using the profile v2 fields (jobradar ADR
+0015): which languages a posting requires, whether a remote job is open to your regions,
+whether an on-site job is somewhere you would move to, and whether the posting rules out
+visa sponsorship. Explicit statements decide; silence is unknown, never a mismatch.
+
+## Technical details
+
+**Problem.** 90% of open jobs fail the location gate, because v1 only knows "remote only,
+from Thailand". You would relocate anywhere, accept remote jobs open worldwide, to APAC or to
+Thailand, speak English (B2-C1) and Russian (native), and need visa sponsorship to move.
+
+**Extraction** (`extract/`, deterministic, like the rest):
+- Required languages: phrases such as "fluent German", "German C1", "native French",
+  "business-level Japanese required", with a CEFR level when stated ("fluent" = C1,
+  "native" = C2, "business" = B2, "conversational" = B1) and required vs nice-to-have from
+  the section, as for skills.
+- Posting language: the description's language (a small stopword-frequency test over the
+  extracted text; no model). A posting written in German without a stated requirement counts
+  as "German probably required", a weaker signal (scored, never a gate).
+- Sponsorship: "visa sponsorship available", "relocation package/support" (positive);
+  "no visa sponsorship", "must have the right to work in X", "must be based in X"
+  (negative); none = unknown.
+
+**Eligibility, in order:**
+1. Remote job: reachable if its allowed regions intersect `remote_regions` (worldwide, APAC,
+   TH), or it states no restriction; "US only" with no overlap: not reachable.
+2. On-site or hybrid job: reachable if `relocation.willing` and its country is in
+   `relocation.regions` (worldwide for you); then sponsorship applies: a negative statement
+   with `needs_visa_sponsorship` is not reachable; unknown stays reachable.
+3. Language: a required language you lack, or have below the required level, is a mismatch.
+
+**Gates and dimension.**
+- New hard constraints a profile can name: `languages` and `work_authorization`
+  (sponsorship), next to `remote_only`, `locations`, `salary`. `pass`/`fail`/`unknown` as
+  today; `unknown` never excludes.
+- The location dimension becomes "eligibility": 1.0 remote and reachable; 0.8 relocation
+  with sponsorship offered; 0.6 relocation, sponsorship unknown; 0.5 when the posting's
+  language suggests one you lack. Values in `defaults/scoring.yaml`.
+- Explanations: "Remote, open to APAC", "On-site in Berlin: relocation, visa sponsorship
+  offered", "Requires fluent German (you: none)".
+
+**Your hard constraints** (the v2 revision): `languages`, `work_authorization`, `salary`;
+`remote_only` off, `locations` replaced by the eligibility rules above.
+
+**Checks.**
+- `eval/skills.jsonl`-style hand checks for ~30 postings' language and sponsorship
+  extraction (precision first: a wrong "fail" hides a job).
+- The eval gate: no new false fails among jobs graded 2-3; NDCG@10 must not drop.
+- After promotion the backend re-scores all open jobs; expect many more eligible jobs.
+
+## Technologies and alternatives
+- Involved: regexes and the existing `geo.py` regions; no new dependency.
+- Alternatives:
+  - A language-detection library (`langdetect`, `lingua`): more accurate, but a dependency
+    and model data for one weak signal; stopword counts suffice for de/fr/nl/es/en.
+  - Treating relocation as always eligible, ignoring sponsorship: you asked that "no
+    sponsorship" excludes.
+  - The cross-encoder deciding eligibility: not reliable for explicit rules, and not
+    explainable as a gate.
