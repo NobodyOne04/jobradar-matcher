@@ -43,6 +43,19 @@ class CompensationCfg(_C):
     per_year: dict[str, float]
 
 
+class EligibilityCfg(_C):
+    """Location-dimension values for profile v2's eligibility rules (ADR 0006). Older bundles
+    lack the section: these defaults apply."""
+
+    remote_reachable: float = Field(default=1.0, ge=0, le=1)  # remote, open to your regions
+    relocation_sponsored: float = Field(default=0.8, ge=0, le=1)  # move; help or visa offered
+    relocation: float = Field(default=0.6, ge=0, le=1)  # move; sponsorship not mentioned
+    posting_language_unspoken: float = Field(default=0.5, gt=0, le=1)  # never fails a gate
+    # Points off a job you can only take by moving, so remote jobs open to you rank first at
+    # equal fit (ADR 0006 amendment, 2026-11-17). Location is only 10% of the weight.
+    relocation_penalty: int = Field(default=10, ge=0, le=50)
+
+
 class BandsCfg(_C):
     strong: int = Field(ge=0, le=100)
     good: int = Field(ge=0, le=100)
@@ -59,6 +72,7 @@ class ScoringConfig(_C):
     responsibilities: ResponsibilitiesCfg
     seniority: SeniorityCfg
     compensation: CompensationCfg
+    eligibility: EligibilityCfg = EligibilityCfg()
     bands: BandsCfg
     confidence: ConfidenceCfg
 

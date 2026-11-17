@@ -9,6 +9,13 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from matcher.extract.eligibility import (
+    LanguageRequirement,
+    SponsorshipStatement,
+    languages_required,
+    posting_language,
+    sponsorship,
+)
 from matcher.taxonomy import MAX_PHRASE, Taxonomy
 from matcher.tokens import lower, tokens
 
@@ -40,6 +47,10 @@ class Extraction(BaseModel):
     utc_offsets: list[float]
     unrecognized: list[str]
     duties: list[str]  # what the job involves: lines to compare with the candidate's experience
+    # Who can take it (ADR 0006); defaults keep older callers and recorded results valid.
+    languages: list[LanguageRequirement] = []
+    posting_language: str | None = None
+    sponsorship: SponsorshipStatement | None = None
 
 
 # --- Sections ---------------------------------------------------------------------------
@@ -428,7 +439,23 @@ def extract(title: str, text: str, tax: Taxonomy) -> Extraction:
         utc_offsets=_offsets(title + "\n" + text),
         unrecognized=_unrecognized(kept, tax),
         duties=_duties(lines),
+        languages=languages_required(_sectioned(lines)),
+        posting_language=posting_language(text),
+        sponsorship=sponsorship(lines),  # all lines: "relocation package" sits under benefits
     )
+
+
+def _sectioned(lines: list[str]) -> list[tuple[str, bool]]:
+    """Lines outside ignored sections, each with whether it is under a preferred heading."""
+    out: list[tuple[str, bool]] = []
+    section: Section | None = None
+    for line in lines:
+        heading = _heading(line)
+        if heading:
+            section = heading
+        elif section != "ignore":
+            out.append((line, section == "preferred"))
+    return out
 
 
 def _duties(lines: list[str], limit: int = 40) -> list[str]:

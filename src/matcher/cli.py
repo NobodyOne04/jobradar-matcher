@@ -55,7 +55,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     ev = sub.add_parser("eval", help="the evaluation set (ADR 0003)")
     evs = ev.add_subparsers(dest="eval_command", required=True)
-    evs.add_parser("grade", help="grade each job's fit for you, 0-3, one at a time")
+    eg = evs.add_parser("grade", help="grade each job's fit for you, 0-3, one at a time")
+    eg.add_argument(
+        "--jobs",
+        type=Path,
+        help="re-grade these job ids (one per line), replacing their grades; default: ungraded",
+    )
     evs.add_parser("skills", help="correct the extracted skills of each job")
     er = evs.add_parser("run", help="compute the metrics")
     er.add_argument("--profile", type=Path, required=True, help="the eval profile (not committed)")
@@ -153,7 +158,10 @@ def _eval(args: argparse.Namespace) -> int:
     if args.eval_command == "grade":
         from matcher.evaluate.interactive import grade_session
 
-        grade_session(args.dir)
+        only = None
+        if args.jobs:
+            only = [line.strip() for line in args.jobs.read_text().splitlines() if line.strip()]
+        grade_session(args.dir, only=only)
         return 0
     if args.eval_command == "skills":
         from matcher.evaluate.interactive import skills_session
