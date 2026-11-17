@@ -1,5 +1,6 @@
 """Eligibility (matcher ADR 0006): languages, relocation, remote regions, visa sponsorship."""
 
+import time
 from pathlib import Path
 from typing import Any
 
@@ -212,3 +213,21 @@ def test_v1_profiles_take_the_old_path() -> None:
         description_text="Visa sponsorship is available.",
     )
     assert gates(r) == {"locations": "fail", "remote_only": "fail"}
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "English" + " " * 50_000 + "x",
+        "English " + "language " * 5_000 + "zz",
+        "no" + " " * 50_000 + "x",
+        "fluent " * 10_000,
+        "\t \n".join(["German"] * 5_000),
+    ],
+)
+def test_hostile_lines_stay_fast(line: str) -> None:
+    """Job text is untrusted: long whitespace runs must not trigger regex backtracking."""
+    start = time.perf_counter()
+    languages_required([(line, False)])
+    sponsorship([line])
+    assert time.perf_counter() - start < 1.0
