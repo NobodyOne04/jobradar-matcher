@@ -3,8 +3,8 @@
 ## Unreleased
 
 ### Added
-- ADR 0006 (Proposed): eligibility from languages, relocation, remote regions and visa sponsorship
-- ADR 0007 (Proposed): role fit from a pretrained cross-encoder reranker
+- ADR 0006 (Accepted): eligibility from languages, relocation, remote regions and visa sponsorship
+- ADR 0007 (Accepted): role fit from a pretrained cross-encoder reranker
 
 ### Fixed
 - Locations: "worldwide" in company boilerplate ("20,000 organizations worldwide") made every posting open worldwide; it now counts only in hiring phrases ("Remote - Worldwide", "work from anywhere"). The posting's location fields win over regions named in its text. Common cities, all US states, Cambodia, Myanmar, China, Pakistan, Bangladesh, Sri Lanka, Saudi Arabia, Costa Rica are known (0.3.2)
