@@ -242,9 +242,35 @@ _STOPWORDS: dict[str, frozenset[str]] = {
 _WORD = re.compile(r"[^\W\d_]+", re.UNICODE)
 
 
+# Scripts that name a language on their own; Han without kana is Chinese.
+_SCRIPTS: list[tuple[str, re.Pattern[str]]] = [
+    ("ja", re.compile(r"[\u3040-\u30ff]")),  # hiragana, katakana
+    ("ko", re.compile(r"[\uac00-\ud7af]")),  # hangul
+    ("th", re.compile(r"[\u0e00-\u0e7f]")),
+    ("ru", re.compile(r"[\u0400-\u04ff]")),  # Cyrillic: Russian, the most common in postings
+    ("zh", re.compile(r"[\u4e00-\u9fff]")),
+]
+
+
+def _script_language(text: str) -> str | None:
+    """A posting mostly in a non-Latin script: at least 30% of its first 2,000 letters."""
+    letters = [c for c in text[:4000] if c.isalpha()][:2000]
+    if len(letters) < 40:
+        return None
+    sample = "".join(letters)
+    for code, pattern in _SCRIPTS:
+        if len(pattern.findall(sample)) >= 0.3 * len(letters):
+            return code
+    return None
+
+
 def posting_language(text: str) -> str | None:
-    """The language most of the first 400 words are stopwords of, if it is clear: at least 15
-    hits and twice the runner-up. Mixed or short texts give None."""
+    """The language the posting is written in, if it is clear: a non-Latin script that most
+    letters are in, else the language most of the first 400 words are stopwords of (at least
+    15 hits and twice the runner-up). Mixed or short texts give None."""
+    script = _script_language(text)
+    if script:
+        return script
     words = [w.casefold() for w in _WORD.findall(text)[:400]]
     counts = sorted(
         ((sum(w in stop for w in words), code) for code, stop in _STOPWORDS.items()), reverse=True

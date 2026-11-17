@@ -10,6 +10,7 @@
 - ADR 0007 (Accepted): role fit from a pretrained cross-encoder reranker
 
 ### Fixed
+- Remote jobs limited to one country in your region ("remote, Japan") counted as reachable from Thailand; a remote job must admit your region as a whole, otherwise it needs relocation. Postings in Japanese, Korean, Thai, Chinese or Cyrillic were not recognized as non-English (0.5.1)
 - Eligibility extraction could take minutes on job text with long whitespace runs (regex backtracking); lines are normalized and capped, patterns rewritten to stay linear
 - Locations: "worldwide" in company boilerplate ("20,000 organizations worldwide") made every posting open worldwide; it now counts only in hiring phrases ("Remote - Worldwide", "work from anywhere"). The posting's location fields win over regions named in its text. Common cities, all US states, Cambodia, Myanmar, China, Pakistan, Bangladesh, Sri Lanka, Saudi Arabia, Costa Rica are known (0.3.2)
 - `matcher train` and `eval run` in the image ran without the embedding model (the default path existed only in a checkout), so model versions 1–3 carry metrics without the responsibilities dimension; the default is now `MATCHER_EMBEDDING_DIR`, and both refuse to run without the model (0.3.1)

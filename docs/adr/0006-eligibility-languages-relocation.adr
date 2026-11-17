@@ -65,9 +65,13 @@ them: the first eval run ranked a UK and a US relocation job into the top 10.
   new `eligibility` config section apply to bundles without it.
 - For a v2 profile with `remote_regions` or `relocation`, the `locations` gate means "can you
   take the job" (the order above); v1 profiles keep the v1 path unchanged.
-- `worldwide` in `remote_regions` admits jobs open worldwide, not every job: a remote job is
-  reachable if it admits one of your specific regions (APAC, TH), or is open worldwide;
-  "remote, US only" is reached only by relocation.
+- A remote job is reachable if it admits one of your `remote_regions` **as a whole**:
+  worldwide, all of APAC, or a country you named (TH). "Remote, Japan" admits only people in
+  Japan, so it needs a move (relocation, with its penalty), although Japan is in APAC; so does
+  "remote, US only". (0.5.0 accepted any overlap and ranked Japan- and Singapore-only remote
+  jobs as reachable from Thailand; fixed in 0.5.1.)
+- The posting's language is detected from its script first (Japanese, Korean, Thai,
+  Cyrillic, Chinese: 30% of its letters), then from stopwords (0.5.1).
 - Language requirements are judged per sentence and clause: "Fluent in English, other
   European languages a plus" requires English; "required" in the clause beats a "nice to
   have" heading; two or more languages joined by "or" are a choice (none required).

@@ -76,6 +76,23 @@ def test_posting_language() -> None:
     assert posting_language(en) == "en"
     assert posting_language(de) == "de"
     assert posting_language("Python SQL Spark Kafka") is None  # too short to tell
+    assert (
+        posting_language(
+            "シニアコンサルティングエンジニアとして、お客様のデータ基盤を設計します。" * 3
+        )
+        == "ja"
+    )
+    assert (
+        posting_language("데이터 엔지니어로서 데이터 파이프라인을 설계하고 운영합니다. " * 3)
+        == "ko"
+    )
+    assert (
+        posting_language("我们正在寻找一名数据工程师负责设计和维护数据平台与数据管道。" * 3) == "zh"
+    )
+    assert (
+        posting_language("Мы ищем инженера данных для разработки и поддержки платформы. " * 3)
+        == "ru"
+    )
 
 
 @pytest.mark.parametrize(
@@ -154,6 +171,29 @@ def test_remote_limited_elsewhere_counts_as_relocation() -> None:
     assert gates(r)["locations"] == "pass"  # reachable by moving
     assert gates(r)["work_authorization"] == "fail"  # but they won't sponsor
     assert r.band == "excluded"
+
+
+def test_remote_limited_to_one_country_in_your_region_needs_a_move() -> None:
+    # "Remote, Japan" is not open to APAC as a whole: it needs you in Japan.
+    jp = run(profile(), remote_policy="remote", countries=["JP"], description_text="Join us.")
+    loc = next(d for d in jp.dimensions if d.name == "location")
+    assert any("relocation" in e for e in loc.evidence)
+    apac = run(
+        profile(),
+        remote_policy="remote",
+        location_text="Remote - APAC",
+        description_text="Join us.",
+    )
+    loc = next(d for d in apac.dimensions if d.name == "location")
+    assert not any("relocation" in e for e in loc.evidence)  # APAC includes Thailand: no move
+    assert apac.score > jp.score  # the move costs the relocation penalty
+
+
+def test_posting_in_japanese_is_a_language_you_dont_list() -> None:
+    text = "シニアコンサルティングエンジニアとして、お客様のデータ基盤を設計します。" * 5
+    r = run(profile(), remote_policy="remote", location_text="Remote - APAC", description_text=text)
+    loc = next(d for d in r.dimensions if d.name == "location")
+    assert any("posting is in Japanese" in e for e in loc.evidence)
 
 
 def test_onsite_abroad_with_sponsorship_offered() -> None:
