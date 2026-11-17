@@ -219,7 +219,7 @@ def test_inputs_are_strict() -> None:
     with pytest.raises(ValidationError):
         Profile.model_validate({**data, "ssn": "123"})
     with pytest.raises(ValidationError):
-        Profile.model_validate({**data, "schema_version": 2})
+        Profile.model_validate({**data, "schema_version": 3})
     with pytest.raises(ValidationError):
         Job.model_validate({"title": "x", "remote_policy": "sometimes"})
 

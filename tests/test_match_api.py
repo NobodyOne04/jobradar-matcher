@@ -79,7 +79,7 @@ def test_match_errors(client: tuple[TestClient, FakeSource]) -> None:
         == 422
     )
     bad_profile = body()
-    bad_profile["profile"]["schema_version"] = 2
+    bad_profile["profile"]["schema_version"] = 3
     assert c.post("/v1/match", json=bad_profile, headers=AUTH).status_code == 422
     src.down = True
     r = c.post("/v1/match", json=body(model_version="2"), headers=AUTH)
